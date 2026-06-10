@@ -1,0 +1,645 @@
+# -*- coding: utf-8 -*-
+"""
+Smart key frame extraction v2: LLM-guided stage detection + visual quality scoring.
+Uses transcript with timestamps to identify content stages, then evaluates
+multiple candidate frames per stage by blur/brightness/face metrics.
+"""
+import subprocess, sys, json, os, re, math, tempfile
+from pathlib import Path
+
+
+# =========================================================================
+# Video metadata
+# =========================================================================
+
+def get_video_duration(video_path):
+    """Get video duration in seconds using OpenCV or ffprobe."""
+    try:
+        import cv2
+        cap = cv2.VideoCapture(str(video_path))
+        if cap.isOpened():
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+            cap.release()
+            if fps > 0:
+                return frame_count / fps
+    except Exception:
+        pass
+    cmd = ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", str(video_path)]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode == 0:
+        return float(json.loads(result.stdout).get("format", {}).get("duration", 0))
+    return 0
+
+
+def get_video_fps(video_path):
+    """Get video FPS."""
+    try:
+        import cv2
+        cap = cv2.VideoCapture(str(video_path))
+        if cap.isOpened():
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            cap.release()
+            if fps > 0:
+                return fps
+    except Exception:
+        pass
+    return 30.0
+
+
+# =========================================================================
+# Frame quality scoring (OpenCV)
+# =========================================================================
+
+_face_cascade = None
+
+def _get_face_cascade():
+    global _face_cascade
+    if _face_cascade is None:
+        try:
+            import cv2
+            cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+            _face_cascade = cv2.CascadeClassifier(cascade_path)
+        except Exception:
+            _face_cascade = False
+    return _face_cascade if _face_cascade is not False else None
+
+
+def evaluate_frame_quality(frame_path):
+    """
+    Score a frame on multiple visual quality dimensions.
+    Returns dict with individual scores and a weighted total (0-100).
+    """
+    try:
+        import cv2
+        import numpy as np
+    except ImportError:
+        return {"total": 50, "blur": 50, "brightness": 50, "contrast": 50, "face": 0}
+
+    img = cv2.imread(str(frame_path))
+    if img is None:
+        return {"total": 0, "blur": 0, "brightness": 0, "contrast": 0, "face": 0}
+
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    h, w = gray.shape[:2]
+
+    # 1. Blur score (Laplacian variance) — higher = sharper
+    lap_var = cv2.Laplacian(gray, cv2.CV_64F).var()
+    # Typical range: 0-2000+. Map: <50=blurry(0), >500=sharp(100)
+    blur_score = min(100, max(0, (lap_var - 50) / 450 * 100))
+
+    # 2. Brightness score — prefer well-lit (mean ~120-160 is ideal)
+    mean_brightness = np.mean(gray)
+    # Bell curve centered at 130, sigma ~60
+    brightness_score = max(0, 100 - abs(mean_brightness - 130) / 60 * 100)
+
+    # 3. Contrast score — higher std = more visual interest
+    std_brightness = np.std(gray)
+    # Good contrast: std > 40. Map 20-70 to 0-100
+    contrast_score = min(100, max(0, (std_brightness - 20) / 50 * 100))
+
+    # 4. Face detection score
+    face_score = 0
+    cascade = _get_face_cascade()
+    if cascade is not None:
+        faces = cascade.detectMultiScale(gray, 1.1, 4, minSize=(30, 30))
+        if len(faces) > 0:
+            # Prefer 1-3 faces, centered
+            face_count_score = min(100, len(faces) * 40)
+            # Check if face is roughly centered
+            fx, fy, fw, fh = faces[0]
+            cx = (fx + fw / 2) / w
+            cy = (fy + fh / 2) / h
+            center_dist = math.sqrt((cx - 0.5) ** 2 + (cy - 0.45) ** 2)
+            center_score = max(0, 100 - center_dist * 200)
+            face_score = (face_count_score + center_score) / 2
+
+    # 5. Edge density — more edges = more detail/content
+    edges = cv2.Canny(gray, 50, 150)
+    edge_ratio = np.sum(edges > 0) / (h * w)
+    edge_score = min(100, edge_ratio * 1000)  # Typical: 0.01-0.1
+
+    # Weighted total
+    total = (
+        blur_score * 0.30 +
+        brightness_score * 0.15 +
+        contrast_score * 0.20 +
+        face_score * 0.25 +
+        edge_score * 0.10
+    )
+
+    return {
+        "total": round(total, 1),
+        "blur": round(blur_score, 1),
+        "brightness": round(brightness_score, 1),
+        "contrast": round(contrast_score, 1),
+        "face": round(face_score, 1),
+        "edge": round(edge_score, 1),
+    }
+
+
+# =========================================================================
+# Scene change detection (improved)
+# =========================================================================
+
+def detect_scene_changes(video_path, start, end, threshold=0.15, max_frames=5):
+    """
+    Detect scene changes within a time range using ffmpeg.
+    Returns list of timestamps where significant visual changes occur.
+    Returns up to max_frames candidates, sorted by change magnitude.
+    """
+    duration = end - start
+    if duration <= 0.5:
+        return []
+
+    cmd = [
+        "ffmpeg", "-ss", str(start), "-t", str(duration),
+        "-i", str(video_path),
+        "-vf", f"select='gt(scene,{threshold})',showinfo",
+        "-f", "null", "-",
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        output = result.stderr
+    except Exception:
+        return []
+
+    times = []
+    for line in output.split("\n"):
+        m = re.search(r"pts_time:(\d+\.?\d*)", line)
+        if m:
+            t = start + float(m.group(1))
+            if start <= t <= end:
+                times.append(round(t, 2))
+
+    if not times:
+        # Try with lower threshold
+        return detect_scene_changes(video_path, start, end, threshold=max(0.05, threshold * 0.5), max_frames=max_frames)
+
+    # Deduplicate times within 0.5s
+    deduped = [times[0]]
+    for t in times[1:]:
+        if t - deduped[-1] >= 0.5:
+            deduped.append(t)
+
+    return deduped[:max_frames]
+
+
+def sample_candidate_frames(video_path, start, end, step=0.5, max_samples=8):
+    """
+    Sample frames at regular intervals within a time range.
+    Returns list of timestamps.
+    """
+    duration = end - start
+    if duration <= 0:
+        return []
+
+    # Adapt step to duration: sample ~6-8 frames per stage
+    effective_step = max(step, duration / max_samples)
+    candidates = []
+    t = start + effective_step * 0.3  # Start slightly after beginning
+    while t < end - 0.3:
+        candidates.append(round(t, 2))
+        t += effective_step
+    return candidates[:max_samples]
+
+
+# =========================================================================
+# LLM stage detection (improved: full transcript + segments)
+# =========================================================================
+
+def llm_detect_stages(transcript_text, duration, config, segments=None):
+    """
+    Use LLM to detect content stage timestamps from transcript.
+    Now includes whisper segment timestamps for better time mapping.
+    Returns list of stages with actual time boundaries.
+    """
+    if not config or not config.get("llm", {}).get("api_key"):
+        return None
+
+    try:
+        import requests
+    except ImportError:
+        return None
+
+    llm_cfg = config.get("llm", {})
+    api_key = llm_cfg.get("api_key", "")
+    base_url = llm_cfg.get("base_url", "https://api.openai.com/v1")
+    model = llm_cfg.get("model", "gpt-4o-mini")
+
+    # Build segment-annotated transcript for better time mapping
+    seg_text = ""
+    if segments:
+        for seg in segments[:80]:  # Limit to avoid token overflow
+            seg_text += f"[{seg.get('start', 0):.1f}s-{seg.get('end', 0):.1f}s] {seg.get('text', '')}\n"
+        seg_text = seg_text[:2000]
+    else:
+        seg_text = transcript_text[:1500]
+
+    prompt = f"""You are a short video content structure analyst. Given the timestamped transcript and video duration, determine the exact time boundaries for each content stage.
+
+【Video Duration】{duration:.1f} seconds
+【Timestamped Transcript】
+{seg_text}
+
+Analyze the transcript and return a JSON array of content stages with precise time boundaries.
+Each stage should have: name, start_sec, end_sec, description.
+
+Common stage types for short videos (pick what fits, 3-7 stages):
+- hook: Opening hook to grab attention (usually 0-5s)
+- pain_point: Problem/pain point setup
+- product_intro: Product introduction and features
+- demo: Usage demonstration
+- proof: Social proof / effectiveness / comparison
+- cta: Call to action / closing
+- emotion: Emotional peak / story climax
+
+Return ONLY a JSON array, example:
+[
+  {{"name": "hook", "start_sec": 0, "end_sec": 3.5, "description": "Counter-intuitive opening statement"}},
+  {{"name": "pain_point", "start_sec": 3.5, "end_sec": 8.0, "description": "Yellow teeth and bad breath problem"}}
+]
+
+Rules:
+1. start_sec of first stage must be 0
+2. end_sec of last stage must be {duration:.1f}
+3. Stages must be continuous (no gaps, no overlaps)
+4. 3-7 stages is ideal
+5. Use the [XX.Xs-XX.Xs] timestamps in the transcript to map text to exact times
+6. All timestamps in seconds with one decimal"""
+
+    try:
+        resp = requests.post(
+            f"{base_url.rstrip('/')}/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={"model": model, "messages": [
+                {"role": "system", "content": "Return only valid JSON arrays. No explanation."},
+                {"role": "user", "content": prompt}
+            ], "temperature": 0.1},
+            timeout=30
+        )
+        resp.raise_for_status()
+        raw = resp.json()["choices"][0]["message"]["content"].strip()
+
+        # Parse JSON
+        result = None
+        try:
+            result = json.loads(raw)
+        except Exception:
+            m = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", raw, re.DOTALL)
+            if m:
+                try:
+                    result = json.loads(m.group(1))
+                except Exception:
+                    pass
+            if result is None:
+                start = raw.find("[")
+                end_idx = raw.rfind("]")
+                if start != -1 and end_idx != -1:
+                    try:
+                        result = json.loads(raw[start:end_idx + 1])
+                    except Exception:
+                        pass
+
+        if isinstance(result, list) and len(result) >= 2:
+            stages = []
+            for item in result:
+                stages.append({
+                    "name": item.get("name", "unknown"),
+                    "start": float(item.get("start_sec", 0)),
+                    "end": float(item.get("end_sec", 0)),
+                    "desc": item.get("description", ""),
+                })
+            # Ensure continuity and bounds
+            stages[0]["start"] = 0
+            for i in range(len(stages)):
+                if i > 0:
+                    stages[i]["start"] = stages[i - 1]["end"]
+                if i == len(stages) - 1:
+                    stages[i]["end"] = duration
+                # Clamp
+                stages[i]["start"] = max(0, stages[i]["start"])
+                stages[i]["end"] = min(duration, stages[i]["end"])
+            return stages
+    except Exception as e:
+        print(f"[STAGE] LLM stage detection failed: {e}", file=sys.stderr)
+
+    return None
+
+
+def fallback_stages(segments, duration):
+    """
+    Fallback: use whisper segment text density to estimate stages,
+    or divide into equal segments as last resort.
+    """
+    if segments and len(segments) >= 3:
+        total_chars = sum(len(seg.get("text", "")) for seg in segments)
+        if total_chars > 0:
+            # Use text density to find natural breakpoints
+            # Accumulate character density and find 4 natural break points
+            cumulative = []
+            char_count = 0
+            for seg in segments:
+                char_count += len(seg.get("text", ""))
+                cumulative.append({
+                    "time": seg.get("end", 0),
+                    "chars": char_count,
+                    "ratio": char_count / total_chars,
+                })
+
+            # Define breakpoints at 0%, 20%, 45%, 70%, 100% of text
+            breakpoints = [0.0, 0.20, 0.45, 0.70, 1.0]
+            stage_names = ["hook", "pain_point", "product", "demo", "cta"]
+            stage_descs = [
+                "Opening hook",
+                "Problem/pain point",
+                "Product introduction",
+                "Demo/proof",
+                "Call to action",
+            ]
+
+            def ratio_to_time(r):
+                for c in cumulative:
+                    if c["ratio"] >= r:
+                        return c["time"]
+                return duration
+
+            stages = []
+            for i in range(len(breakpoints) - 1):
+                t_start = ratio_to_time(breakpoints[i])
+                t_end = ratio_to_time(breakpoints[i + 1])
+                if t_end <= t_start:
+                    t_end = t_start + 1.0
+                stages.append({
+                    "name": stage_names[i] if i < len(stage_names) else f"stage_{i+1}",
+                    "start": round(t_start, 2),
+                    "end": round(t_end, 2),
+                    "desc": stage_descs[i] if i < len(stage_descs) else f"Stage {i+1}",
+                })
+            return stages
+
+    # Last resort: equal division into 5 stages
+    seg_dur = duration / 5
+    return [
+        {"name": "hook", "start": 0, "end": round(seg_dur, 2), "desc": "Opening hook"},
+        {"name": "pain_point", "start": round(seg_dur, 2), "end": round(seg_dur * 2, 2), "desc": "Problem setup"},
+        {"name": "product", "start": round(seg_dur * 2, 2), "end": round(seg_dur * 3, 2), "desc": "Product intro"},
+        {"name": "demo", "start": round(seg_dur * 3, 2), "end": round(seg_dur * 4, 2), "desc": "Demo/proof"},
+        {"name": "cta", "start": round(seg_dur * 4, 2), "end": round(duration, 2), "desc": "Call to action"},
+    ]
+
+
+# =========================================================================
+# Frame extraction
+# =========================================================================
+
+def extract_frame_at(video_path, timestamp, output_path):
+    """Extract a single frame at the given timestamp."""
+    cmd = [
+        "ffmpeg", "-y", "-ss", str(timestamp),
+        "-i", str(video_path),
+        "-frames:v", "1", "-q:v", "2",
+        str(output_path),
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        p = Path(output_path)
+        return result.returncode == 0 and p.exists() and p.stat().st_size > 100
+    except Exception:
+        return False
+
+
+# =========================================================================
+# Main extraction pipeline
+# =========================================================================
+
+def extract_frames(video_path, count=6, output_dir=None, config=None, transcript_text=""):
+    """
+    Extract key frames from a video using content-stage-aware selection
+    with visual quality scoring.
+
+    Strategy:
+    1. Detect content stages via LLM (using full transcript + timestamps)
+    2. For each stage, generate multiple candidate frames
+    3. Score each candidate on blur/brightness/contrast/face/edge
+    4. Pick the highest-scoring frame per stage
+    5. Ensure visual diversity across final frames
+    """
+    video_path = Path(video_path)
+    if not video_path.exists():
+        return {"error": "Video not found", "frames": [], "stages": []}
+
+    video_id = video_path.stem.replace("video_", "")
+    if output_dir is None:
+        output_dir = video_path.parent / f"frames_{video_id}"
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    duration = get_video_duration(video_path)
+    if duration <= 0:
+        return {"error": "Cannot get video duration", "frames": [], "stages": []}
+
+    print(f"Video duration: {duration:.1f}s", file=sys.stderr)
+
+    # Load transcript segments
+    segments = []
+    transcript_json_path = video_path.parent / f"transcript_{video_id}.json"
+    if transcript_json_path.exists():
+        try:
+            with open(transcript_json_path, "r", encoding="utf-8") as f:
+                segments = json.load(f).get("segments", [])
+        except Exception:
+            pass
+
+    # Also try the data dir pattern
+    if not segments:
+        for p in video_path.parent.glob("transcript_*.json"):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    segments = json.load(f).get("segments", [])
+                if segments:
+                    break
+            except Exception:
+                pass
+
+    # Step 1: Detect content stages
+    stages = None
+    if config and transcript_text:
+        print("[STAGE] Using LLM to detect content stages...", file=sys.stderr)
+        stages = llm_detect_stages(transcript_text, duration, config, segments=segments)
+
+    if not stages:
+        print("[STAGE] Falling back to segment-based stage estimation", file=sys.stderr)
+        stages = fallback_stages(segments, duration)
+
+    print(f"Content stages ({len(stages)}):", file=sys.stderr)
+    for s in stages:
+        print(f"  {s['name']}: {s['start']:.1f}s-{s['end']:.1f}s - {s['desc']}", file=sys.stderr)
+
+    # Step 2: For each stage, find the best frame via multi-candidate scoring
+    final_frames = []
+    used_times = []
+    target_count = min(count, len(stages) + 2)  # Allow a couple extra
+
+    for stage in stages:
+        if len(final_frames) >= target_count:
+            break
+
+        start = stage["start"]
+        end = stage["end"]
+        stage_duration = end - start
+
+        if stage_duration < 0.3:
+            # Very short stage — just grab midpoint
+            mid = (start + end) / 2
+            output_path = output_dir / f"frame_{len(final_frames)+1:02d}.png"
+            if extract_frame_at(video_path, mid, output_path):
+                quality = evaluate_frame_quality(output_path)
+                used_times.append(mid)
+                final_frames.append({
+                    "index": len(final_frames) + 1,
+                    "path": str(output_path),
+                    "timestamp": round(mid, 2),
+                    "stage": stage["name"],
+                    "desc": stage["desc"],
+                    "quality": quality,
+                })
+            continue
+
+        # Collect candidate timestamps
+        candidates = []
+
+        # A) Scene change detection
+        scene_times = detect_scene_changes(video_path, start, end, threshold=0.12, max_frames=5)
+        candidates.extend(scene_times)
+
+        # B) Regular interval samples
+        sample_times = sample_candidate_frames(video_path, start, end, step=0.5, max_samples=6)
+        candidates.extend(sample_times)
+
+        # C) Stage midpoint
+        mid = (start + end) / 2
+        candidates.append(round(mid, 2))
+
+        # Deduplicate candidates (within 0.3s)
+        candidates.sort()
+        deduped = []
+        for c in candidates:
+            if not deduped or c - deduped[-1] >= 0.3:
+                deduped.append(c)
+        candidates = deduped
+
+        # Evaluate each candidate
+        best_score = -1
+        best_path = None
+        best_ts = mid
+        best_quality = None
+
+        temp_dir = Path(tempfile.mkdtemp(prefix="kf_"))
+
+        for idx, ts in enumerate(candidates):
+            temp_path = temp_dir / f"temp_{idx:02d}.png"
+            if not extract_frame_at(video_path, ts, temp_path):
+                continue
+
+            quality = evaluate_frame_quality(temp_path)
+
+            # Penalty for being too close to already-used times
+            proximity_penalty = 0
+            for ut in used_times:
+                dist = abs(ts - ut)
+                if dist < 0.5:
+                    proximity_penalty = 30
+                elif dist < 1.0:
+                    proximity_penalty = 15
+
+            # Bonus for being near the middle of the stage (but not required)
+            mid_dist = abs(ts - mid) / stage_duration
+            position_bonus = max(0, 10 - mid_dist * 20)
+
+            score = quality["total"] - proximity_penalty + position_bonus
+
+            if score > best_score:
+                best_score = score
+                best_path = temp_path
+                best_ts = ts
+                best_quality = quality
+
+        # Move best frame to final output
+        if best_path and best_path.exists():
+            output_path = output_dir / f"frame_{len(final_frames)+1:02d}.png"
+            import shutil
+            shutil.move(str(best_path), str(output_path))
+            used_times.append(best_ts)
+            final_frames.append({
+                "index": len(final_frames) + 1,
+                "path": str(output_path),
+                "timestamp": round(best_ts, 2),
+                "stage": stage["name"],
+                "desc": stage["desc"],
+                "quality": best_quality,
+            })
+            print(f"  Frame {len(final_frames)} [{stage['name']}]: {best_ts:.1f}s (score={best_score:.0f})", file=sys.stderr)
+
+        # Clean up temp directory
+        import shutil
+        shutil.rmtree(str(temp_dir), ignore_errors=True)
+
+    # Step 3: Fill remaining slots from unused stages
+    for stage in stages:
+        if len(final_frames) >= count:
+            break
+        mid = (stage["start"] + stage["end"]) / 2
+        if any(abs(mid - ut) < 2.0 for ut in used_times):
+            continue
+        output_path = output_dir / f"frame_{len(final_frames)+1:02d}.png"
+        if extract_frame_at(video_path, mid, output_path):
+            quality = evaluate_frame_quality(output_path)
+            used_times.append(mid)
+            final_frames.append({
+                "index": len(final_frames) + 1,
+                "path": str(output_path),
+                "timestamp": round(mid, 2),
+                "stage": stage["name"],
+                "desc": stage["desc"],
+                "quality": quality,
+            })
+            print(f"  Frame {len(final_frames)} [{stage['name']}]: {mid:.1f}s (fill)", file=sys.stderr)
+
+    # Ensure sequential naming
+    for i, frame in enumerate(final_frames):
+        old_path = Path(frame["path"])
+        new_path = output_dir / f"frame_{i+1:02d}.png"
+        if old_path != new_path and old_path.exists():
+            import shutil
+            shutil.move(str(old_path), str(new_path))
+        frame["index"] = i + 1
+        frame["path"] = str(new_path)
+
+    result = {
+        "video_id": video_id,
+        "video_path": str(video_path),
+        "frame_count": len(final_frames),
+        "duration": duration,
+        "stages": [{"name": s["name"], "start": s["start"], "end": s["end"], "desc": s["desc"]} for s in stages],
+        "frames": final_frames,
+        "output_dir": str(output_dir),
+    }
+
+    with open(output_dir / "frames_meta.json", "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
+
+    return result
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python extract_frames.py <video_path> [--count N]", file=sys.stderr)
+        sys.exit(1)
+    video_path = sys.argv[1]
+    count = 6
+    if "--count" in sys.argv:
+        idx = sys.argv.index("--count")
+        count = int(sys.argv[idx + 1])
+    result = extract_frames(video_path, count=count)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
