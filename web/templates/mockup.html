@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>钩子生成 - 设计预览</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0f; color: #fff; font-family: -apple-system, sans-serif; padding: 20px; }
+.container { max-width: 900px; margin: 0 auto; }
+.header { text-align: center; margin-bottom: 24px; }
+.header h1 { font-size: 22px; margin-bottom: 6px; }
+.header p { color: rgba(255,255,255,0.4); font-size: 13px; }
+.card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+.card-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.card-title span { font-size: 16px; }
+.row { display: flex; gap: 12px; margin-bottom: 10px; }
+.col { flex: 1; }
+.label { font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 6px; }
+.input { width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: #fff; font-size: 13px; }
+.upload-box { border: 1px dashed rgba(255,255,255,0.2); border-radius: 8px; padding: 16px; text-align: center; color: rgba(255,255,255,0.3); font-size: 12px; cursor: pointer; min-height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.upload-box .icon { font-size: 24px; }
+.btn { padding: 10px 24px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; }
+.btn-primary { background: #0a84ff; color: #fff; width: 100%; }
+.btn-secondary { background: rgba(255,255,255,0.08); color: #fff; }
+.frames { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0; }
+.frame { width: 70px; height: 70px; border-radius: 6px; background: rgba(255,255,255,0.1); flex-shrink: 0; position: relative; cursor: pointer; border: 2px solid transparent; }
+.frame.selected { border-color: #4fc3f7; }
+.frame-label { position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); font-size: 9px; color: rgba(255,255,255,0.5); background: rgba(0,0,0,0.5); padding: 1px 4px; border-radius: 3px; }
+.prompt-area { min-height: 100px; background: rgba(255,255,255,0.03); border-radius: 8px; padding: 10px; font-size: 12px; line-height: 1.8; color: rgba(255,255,255,0.7); }
+.result-area { min-height: 200px; background: rgba(255,255,255,0.02); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.2); font-size: 13px; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-right: 4px; }
+.tag-hook { background: rgba(255,107,107,0.2); color: #ff6b6b; }
+.tag-ai { background: rgba(10,132,255,0.2); color: #64d2ff; }
+.tag-p0 { background: rgba(255,59,48,0.2); color: #ff3b30; font-size: 10px; }
+.step-num { width: 20px; height: 20px; border-radius: 50%; background: #0a84ff; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+.hook-type-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.hook-type-btn { padding: 5px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12); background: transparent; color: rgba(255,255,255,0.5); font-size: 11px; cursor: pointer; }
+.hook-type-btn.active { background: rgba(255,107,107,0.15); border-color: #ff6b6b; color: #ff6b6b; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🎣 钩子视频生成</h1>
+    <p>选择对标报告 → AI拆解钩子策略 → 一键生成开头钩子视频</p>
+  </div>
+
+  <!-- Step 1: 选择报告 -->
+  <div class="card">
+    <div class="card-title"><span class="step-num">1</span> 选择拆解报告</div>
+    <select class="input">
+      <option>升级版正畸蜡 | 牙套防磨嘴</option>
+      <option>果味牙套清洁片 | 牙套清洁省时好物</option>
+      <option>呼吸海洋漱口水 | 美白去黄推荐</option>
+    </select>
+    <div style="margin-top:10px;">
+      <div class="label">拆解关键帧 <span style="color:rgba(255,255,255,0.3);">- 点击选中作为风格参考</span></div>
+      <div class="frames">
+        <div class="frame selected"><div class="frame-label">钩子</div></div>
+        <div class="frame selected"><div class="frame-label">钩子</div></div>
+        <div class="frame"><div class="frame-label">钩子</div></div>
+        <div class="frame"><div class="frame-label">内容</div></div>
+        <div class="frame"><div class="frame-label">内容</div></div>
+        <div class="frame"><div class="frame-label">内容</div></div>
+        <div class="frame"><div class="frame-label">转化</div></div>
+        <div class="frame"><div class="frame-label">转化</div></div>
+        <div class="frame"><div class="frame-label">转化</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: 参考素材 -->
+  <div class="card">
+    <div class="card-title"><span class="step-num">2</span> 参考素材</div>
+    <div class="three-col">
+      <div>
+        <div class="label">参考人物图片 <span class="tag tag-p0">P0</span></div>
+        <div class="upload-box">
+          <div class="icon">👤</div>
+          <div>+ 上传人物照片</div>
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px;">视频中出现的人物</div>
+        <textarea class="input" rows="2" placeholder="手动补充人物描述（可选）" style="margin-top:6px;resize:vertical;min-height:36px;font-size:11px;"></textarea>
+      </div>
+      <div>
+        <div class="label">参考产品图片 <span class="tag tag-p0">P0</span></div>
+        <div class="upload-box">
+          <div class="icon">📦</div>
+          <div>+ 上传产品照片</div>
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px;">视频中展示的产品</div>
+        <textarea class="input" rows="2" placeholder="手动补充产品描述（可选）" style="margin-top:6px;resize:vertical;min-height:36px;font-size:11px;"></textarea>
+      </div>
+      <div>
+        <div class="label">视频时长</div>
+        <input type="number" class="input" value="5" min="1" max="10" style="width:80px;">
+        <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px;">建议3-5秒，钩子要短快</div>
+        <div style="margin-top:12px;">
+          <div class="label">钩子策略 <span class="tag tag-hook">AI</span></div>
+          <div class="hook-type-btns">
+            <button class="hook-type-btn active">痛点</button>
+            <button class="hook-type-btn">悬念</button>
+            <button class="hook-type-btn">直接</button>
+            <button class="hook-type-btn">问题</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: 钩子策略详情 -->
+  <div class="card">
+    <div class="card-title"><span class="step-num">3</span> 钩子策略分析 <span class="tag tag-ai">AI自动识别</span></div>
+    <div style="padding:10px;background:rgba(255,107,107,0.06);border-radius:8px;border-left:3px solid rgba(255,107,107,0.3);">
+      <div style="font-size:12px;color:rgba(255,255,255,0.7);line-height:1.6;">强痛点开场：直接点出"牙套磨嘴、正畸蜡必须用"的高频真实痛苦，快速筛选正在戴牙套的精准人群并引发共鸣</div>
+    </div>
+  </div>
+
+  <!-- 生成按钮 -->
+  <button class="btn btn-primary" style="margin-bottom:14px;">🎣 一键生成钩子视频</button>
+
+  <!-- 提示词预览 -->
+  <div class="card">
+    <div class="card-title"><span class="tag tag-ai">AI生成</span> 钩子提示词 <button class="btn btn-secondary" style="font-size:11px;padding:3px 10px;margin-left:auto;">🔄 重新生成</button></div>
+    <div class="prompt-area">
+      0-1s: 竖屏9:16，4K超清。参考人物图片中的女生站在白色洗手台前，眉心紧锁，右手食指轻按左侧嘴角，露出银色牙套末端；桌面左侧放着参考产品图片中的正畸蜡...<br><br>
+      1-2s: 女生左手拿起产品，嘴角仍下压，蜡条按向托槽但翘起脱落；背景镜面反射暖白浴室灯光...<br><br>
+      2-3s: 特写：蜡块从托槽边缘松脱掉落，女生眼神向下看，吸气停顿，表情从期待转为失望...
+    </div>
+    <div style="margin-top:8px;display:flex;gap:8px;">
+      <button class="btn btn-secondary" style="font-size:12px;padding:5px 14px;">✏️ 编辑提示词</button>
+      <button class="btn btn-secondary" style="font-size:12px;padding:5px 14px;">🤖 AI修改</button>
+    </div>
+  </div>
+
+  <!-- 生成结果 -->
+  <div class="card">
+    <div class="card-title">🎬 生成结果</div>
+    <div class="result-area">视频生成后显示在这里</div>
+  </div>
+</div>
+</body>
+</html>
