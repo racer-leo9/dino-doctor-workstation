@@ -1,0 +1,701 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>短视频拆解工作台</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+:root{
+  --bg:#0a0a0c;--card:rgba(22,22,24,.88);--card2:rgba(38,38,40,.7);
+  --text:#f5f5f7;--sub:#8e8e93;--blue:#0a84ff;--green:#30d158;--orange:#ff9f0a;--red:#ff453a;--purple:#bf5af2;
+  --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.12);
+  --shadow:0 8px 40px rgba(0,0,0,.5);--radius:20px;--glass:rgba(255,255,255,.03)
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter','SF Pro Display','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);background-image:radial-gradient(ellipse at 50% 0%,rgba(10,132,255,.06) 0%,transparent 60%);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+
+.topbar{position:sticky;top:0;z-index:100;background:rgba(10,10,12,.8);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;gap:16px}
+.topbar h1{font-size:18px;font-weight:600;flex:1;letter-spacing:-.4px;background:linear-gradient(135deg,#fff 20%,#8e8e93 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.topbar .logo{font-size:22px}
+.topbar-links{display:flex;gap:8px}
+.topbar-links a{padding:8px 18px;background:var(--glass);color:var(--sub);border:1px solid var(--border);border-radius:980px;font-size:12px;font-weight:600;text-decoration:none;transition:all .25s}
+.topbar-links a:hover{background:var(--blue);color:#fff;border-color:var(--blue)}
+.new-btn{padding:9px 24px;background:linear-gradient(135deg,#0a84ff,#5e5ce6);color:#fff;border:none;border-radius:980px;font-size:13px;font-weight:600;cursor:pointer;transition:all .3s;font-family:inherit;letter-spacing:.2px}
+.new-btn:hover{transform:scale(1.04);box-shadow:0 4px 20px rgba(10,132,255,.4)}.new-btn:active{transform:scale(.97)}
+
+.wrapper{max-width:1200px;margin:0 auto;padding:28px 32px 80px}
+
+.input-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:28px 28px 22px;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);margin-bottom:0;position:relative;overflow:hidden}
+.input-card::before{content:'';position:absolute;inset:0;border-radius:var(--radius);padding:1px;background:linear-gradient(135deg,rgba(10,132,255,.2),transparent 50%,rgba(191,90,242,.15));-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.input-row{display:flex;gap:12px;align-items:center}
+.input-row input{flex:1;padding:16px 20px;border:1px solid var(--border2);border-radius:14px;font-size:15px;font-weight:500;outline:none;transition:all .3s;background:var(--glass);color:var(--text);font-family:inherit}
+.input-row input::placeholder{color:var(--sub)}
+.input-row input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(10,132,255,.15),0 0 20px rgba(10,132,255,.08)}
+
+.step-selector{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+.step-check{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:980px;border:1px solid var(--border2);cursor:pointer;font-size:12px;font-weight:600;color:var(--sub);transition:all .25s;user-select:none;background:var(--glass)}
+.step-check:hover{border-color:rgba(10,132,255,.4);color:var(--text);background:rgba(10,132,255,.05)}
+.step-check.selected{background:rgba(10,132,255,.1);border-color:rgba(10,132,255,.4);color:var(--blue)}
+.step-check .check-icon{width:15px;height:15px;border-radius:4px;border:1.5px solid rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:9px;transition:all .2s}
+.step-check.selected .check-icon{background:var(--blue);border-color:var(--blue);color:#fff;font-size:10px}
+.select-all-btn{padding:7px 14px;border-radius:980px;border:1px solid rgba(48,209,88,.3);background:rgba(48,209,88,.08);color:var(--green);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s}
+.select-all-btn:hover{background:rgba(48,209,88,.15)}
+.go-btn{padding:16px 36px;background:linear-gradient(135deg,#0a84ff,#5e5ce6);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:600;cursor:pointer;transition:all .3s;font-family:inherit;white-space:nowrap}
+.go-btn:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(10,132,255,.4)}
+.go-btn:active{transform:translateY(0)}.go-btn:disabled{opacity:.3;cursor:not-allowed;transform:none;box-shadow:none}
+
+.empty{text-align:center;padding:140px 20px;color:var(--sub)}
+.empty .icon{font-size:72px;margin-bottom:24px;opacity:.4}.empty p{font-size:16px;font-weight:500;letter-spacing:.3px}
+
+.section-title{font-size:12px;font-weight:800;color:var(--sub);text-transform:uppercase;letter-spacing:1.5px;margin:32px 0 14px;padding-left:4px;display:flex;align-items:center;gap:8px}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+
+.video-section{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px;backdrop-filter:blur(20px)}
+.video-section video{width:100%;max-height:480px;object-fit:contain;background:#000;display:block}
+.video-meta{padding:14px 20px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--border)}
+.video-meta .tag{font-size:11px;padding:4px 12px;border-radius:980px;background:rgba(10,132,255,.1);color:var(--blue);font-weight:500}
+
+.frames-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:20px}
+.frame-card{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;cursor:pointer;transition:all .35s cubic-bezier(.25,.1,.25,1);position:relative}
+.frame-card:hover{transform:translateY(-6px) scale(1.02);box-shadow:0 16px 48px rgba(0,0,0,.6);border-color:rgba(255,255,255,.12)}
+.frame-card img{width:100%;aspect-ratio:9/16;object-fit:cover;display:block}
+.frame-card .frame-info{padding:10px 12px}
+.frame-card .frame-stage{font-size:11px;font-weight:600;color:var(--blue);margin-bottom:2px}
+.frame-card .frame-role{font-size:10px;color:var(--sub)}
+.frame-card .frame-score{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.65);backdrop-filter:blur(12px);color:var(--green);font-size:11px;font-weight:700;padding:3px 9px;border-radius:980px}
+
+.step-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden;backdrop-filter:blur(20px);opacity:0;transform:translateY(24px);transition:all .5s cubic-bezier(.25,.1,.25,1)}
+.step-card.visible{opacity:1;transform:translateY(0)}
+.step-card.done{border-left:3px solid var(--green)}.step-card.running{border-left:3px solid var(--blue)}.step-card.failed{border-left:3px solid var(--red)}.step-card.skipped{border-left:3px solid var(--sub);opacity:.5}
+.step-header{display:flex;align-items:center;gap:12px;padding:16px 20px;cursor:pointer;user-select:none;transition:background .15s}
+.step-header:hover{background:var(--glass)}
+.step-num{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;background:var(--card2);color:var(--sub);transition:all .3s}
+.step-card.running .step-num{background:linear-gradient(135deg,#0a84ff,#5e5ce6);color:#fff;animation:breathe 2s ease-in-out infinite}
+.step-card.done .step-num{background:var(--green);color:#000}
+.step-card.failed .step-num{background:var(--red);color:#fff}
+.step-title{font-size:14px;font-weight:700;color:var(--text);flex:1;letter-spacing:-.2px}
+.step-badge{font-size:10px;padding:3px 10px;border-radius:980px;font-weight:700;background:var(--card2);color:var(--sub);letter-spacing:.2px}
+.step-card.done .step-badge{background:rgba(48,209,88,.1);color:var(--green)}
+.step-card.running .step-badge{background:rgba(10,132,255,.1);color:var(--blue)}
+.step-card.failed .step-badge{background:rgba(255,69,58,.1);color:var(--red)}
+.step-card.skipped .step-badge{background:rgba(142,142,147,.1);color:var(--sub)}
+.step-detail{padding:0 20px 20px;display:none;font-size:13px;line-height:1.7;color:var(--sub)}
+.step-card.open .step-detail{display:block}
+.step-card.running .step-detail{display:block}
+.arrow{transition:transform .25s;font-size:11px;color:var(--sub)}.step-card.open .arrow{transform:rotate(90deg)}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin:12px 0}
+.metric{background:var(--card2);border-radius:14px;padding:16px;border:1px solid var(--border);transition:all .2s}
+.metric:hover{border-color:var(--border2);background:rgba(38,38,40,.85)}
+.ml{font-size:10px;font-weight:800;color:var(--sub);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
+.mv{font-size:22px;font-weight:700;color:var(--text)}.mv.sm{font-size:13px;font-weight:500;line-height:1.6;color:var(--text)}
+.score-bar{height:3px;background:var(--card2);border-radius:2px;margin-top:8px;overflow:hidden}
+.score-bar .fill{height:100%;border-radius:2px;transition:width 1s cubic-bezier(.25,.1,.25,1)}
+
+.text-block{background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:16px 18px;font-size:13px;line-height:1.9;color:var(--text);white-space:pre-wrap;max-height:400px;overflow-y:auto;margin:10px 0}
+.tag-list{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.tag{font-size:11px;padding:5px 14px;border-radius:980px;background:rgba(10,132,255,.08);color:var(--blue);font-weight:600;border:1px solid rgba(10,132,255,.12);transition:all .2s}
+.tag:hover{background:rgba(10,132,255,.15)}
+.opt-list{list-style:none;padding:0;margin:10px 0;counter-reset:opt}
+.opt-list li{background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:8px;font-size:13px;line-height:1.7;color:var(--text);counter-increment:opt;position:relative;padding-left:42px}
+.opt-list li::before{content:counter(opt);position:absolute;left:14px;top:15px;width:20px;height:20px;border-radius:6px;background:rgba(10,132,255,.1);color:var(--blue);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+
+.refine-box{margin-top:16px;background:var(--glass);border:1px solid var(--border);border-radius:16px;padding:18px}
+.refine-box h4{font-size:13px;font-weight:600;margin-bottom:12px;color:var(--text)}
+.refine-row{display:flex;gap:10px}
+.refine-input{flex:1;padding:12px 16px;border:1px solid var(--border2);border-radius:12px;font-size:13px;resize:none;background:var(--card2);color:var(--text);font-family:inherit;outline:none;transition:border .2s}
+.refine-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(10,132,255,.1)}
+.refine-btn{padding:12px 24px;background:linear-gradient(135deg,#0a84ff,#5e5ce6);color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit}
+.refine-btn:hover{box-shadow:0 4px 16px rgba(10,132,255,.3)}.refine-btn:disabled{opacity:.35}
+.refine-item{background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-top:8px;font-size:12px;color:var(--sub)}
+.refine-item .fb{color:var(--orange);font-weight:600;margin-bottom:4px;font-size:11px}
+
+.progress-line{display:flex;align-items:center;gap:5px;margin-bottom:20px;flex-wrap:wrap}
+.progress-dot{width:7px;height:7px;border-radius:50%;transition:all .3s}
+.progress-dot.done{background:var(--green)}.progress-dot.running,.progress-dot.waiting_selection{background:var(--blue);animation:pulse 1s infinite}.progress-dot.failed{background:var(--red)}.progress-dot.pending,.progress-dot.skipped{background:var(--card2)}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:1000;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(8px)}
+.modal-overlay.show{display:flex}
+.modal-overlay img{max-width:92vw;max-height:92vh;border-radius:14px;box-shadow:0 24px 80px rgba(0,0,0,.7)}
+
+@keyframes breathe{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.5)}}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2)}
+
+@media(max-width:600px){.wrapper{padding:16px}.input-row{flex-direction:column}.frames-gallery{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.topbar-links{display:none}}
+.candidate-section{margin-bottom:24px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px}
+.candidate-section-header{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.candidate-section-badge{background:var(--blue);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:980px}
+.candidate-section-title{font-size:14px;font-weight:700;color:var(--text)}
+.candidate-section-desc{font-size:12px;color:var(--sub);margin-left:auto}
+.candidate-group{margin-bottom:20px}
+.candidate-group-label{font-size:12px;font-weight:600;color:var(--sub);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.candidate-group-label .slot-num{background:rgba(255,255,255,.08);padding:2px 8px;border-radius:980px;font-size:11px}
+.candidate-options{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.candidate-option{position:relative;border:2px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;transition:all .25s ease;opacity:.85}
+.candidate-option:hover{opacity:1;transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.candidate-option.selected{border-color:var(--green);opacity:1;box-shadow:0 0 0 2px rgba(48,209,88,.3)}
+.candidate-option img{width:100%;aspect-ratio:9/16;object-fit:cover;display:block}
+.candidate-option .opt-label{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.8));padding:8px 10px;font-size:11px;color:#fff;font-weight:600}
+.candidate-option .opt-score{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);color:var(--green);font-size:10px;font-weight:700;padding:2px 8px;border-radius:980px}
+.candidate-option .opt-check{position:absolute;top:6px;left:6px;width:22px;height:22px;border-radius:50%;background:var(--green);display:none;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff}
+.candidate-option.selected .opt-check{display:flex}
+.candidate-submit-bar{display:flex;align-items:center;justify-content:space-between;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.candidate-submit-bar .selected-count{font-size:13px;color:var(--sub)}
+.candidate-submit-bar .selected-count strong{color:var(--green)}
+.candidate-submit-btn{background:var(--green);color:#fff;border:none;padding:10px 28px;border-radius:980px;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s}
+.candidate-submit-btn:disabled{opacity:.4;cursor:not-allowed}
+.candidate-submit-btn:not(:disabled):hover{transform:scale(1.04)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="logo">🎬</span>
+  <h1>短视频拆解工作台</h1>
+  <div class="topbar-links">
+    <a href="/library">📚 拆解库</a>
+  </div>
+  <button class="new-btn" onclick="newAnalysis()">+ 新建拆解</button>
+</div>
+<div class="wrapper">
+  <div id="app"></div>
+</div>
+<div class="modal-overlay" id="imgModal" onclick="this.classList.remove('show')">
+  <img id="modalImg" src="" alt="preview"/>
+</div>
+
+<script>
+const STEP_META = {
+  download:   { icon: "⬇️", label: "视频下载",   num: 1 },
+  scrape:     { icon: "📊", label: "数据抓取",   num: 2 },
+  transcribe: { icon: "🎤", label: "语音转录",   num: 3 },
+  frames:     { icon: "🖼️", label: "关键帧提取", num: 4 },
+  structure:  { icon: "📐", label: "文案结构拆解", num: 5 },
+  competitor: { icon: "⚔️", label: "竞品差异分析", num: 6 },
+  viral:      { icon: "🔥", label: "爆款元素分析", num: 7 },
+  optimize:   { icon: "💡", label: "优化方向",   num: 8 },
+  rewrite:    { icon: "✍️", label: "优化后文案",  num: 9 },
+  feishu:     { icon: "📤", label: "飞书同步",   num: 10 }
+};
+
+let currentTask = null;
+let stepData = {};
+let expandedSteps = new Set();
+let pollTimer = null;
+
+function newAnalysis() {
+  currentTask = null; stepData = {}; expandedSteps.clear();
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  renderInput();
+}
+
+function renderInput() {
+  document.getElementById('app').innerHTML = `
+    <div class="empty" id="emptyState">
+      <div class="icon">🎬</div>
+      <p>粘贴抖音/快手视频链接，AI 拆解爆款密码</p>
+    </div>
+    <div class="input-card">
+      <div class="input-row">
+        <input type="text" id="urlInput" placeholder="粘贴视频链接..." autofocus/>
+        <button class="go-btn" id="analyzeBtn" onclick="startAnalyze()">开始拆解</button>
+      </div>
+      <div class="step-selector" id="stepSelector">
+        <button class="select-all-btn" onclick="toggleAllSteps()">✔ 全选/反选</button>
+        <div class="step-check selected" data-step="download" onclick="toggleStepCheck(this)"><span class="check-icon"></span>下载视频</div>
+        <div class="step-check selected" data-step="scrape" onclick="toggleStepCheck(this)"><span class="check-icon"></span>数据抓取</div>
+        <div class="step-check selected" data-step="transcribe" onclick="toggleStepCheck(this)"><span class="check-icon"></span>语音转录</div>
+        <div class="step-check selected" data-step="frames" onclick="toggleStepCheck(this)"><span class="check-icon"></span>关键帧</div>
+        <div class="step-check selected" data-step="structure" onclick="toggleStepCheck(this)"><span class="check-icon"></span>文案结构</div>
+        <div class="step-check selected" data-step="competitor" onclick="toggleStepCheck(this)"><span class="check-icon"></span>竞品分析</div>
+        <div class="step-check selected" data-step="viral" onclick="toggleStepCheck(this)"><span class="check-icon"></span>爆款元素</div>
+        <div class="step-check selected" data-step="optimize" onclick="toggleStepCheck(this)"><span class="check-icon"></span>优化方向</div>
+        <div class="step-check selected" data-step="rewrite" onclick="toggleStepCheck(this)"><span class="check-icon"></span>优化文案</div>
+        <div class="step-check selected" data-step="feishu" onclick="toggleStepCheck(this)"><span class="check-icon"></span>飞书同步</div>
+      </div>
+    </div>
+    <div id="analysis-area"></div>
+  `;
+  document.getElementById('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') startAnalyze(); });
+}
+
+let selectedSteps = new Set(['download','scrape','transcribe','frames','structure','competitor','viral','optimize','rewrite','feishu']);
+
+function toggleStepCheck(el) {
+  const step = el.dataset.step;
+  if(el.classList.contains('selected')) {
+    el.classList.remove('selected');
+    selectedSteps.delete(step);
+  } else {
+    el.classList.add('selected');
+    selectedSteps.add(step);
+  }
+}
+
+function toggleAllSteps() {
+  const all = document.querySelectorAll('.step-check');
+  const allSelected = selectedSteps.size >= 10;
+  all.forEach(el => {
+    if(allSelected) {
+      el.classList.remove('selected');
+      selectedSteps.delete(el.dataset.step);
+    } else {
+      el.classList.add('selected');
+      selectedSteps.add(el.dataset.step);
+    }
+  });
+}
+
+function startAnalyze() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) return;
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true; btn.textContent = '提交中...';
+  fetch('/api/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url, steps: Array.from(selectedSteps) })
+  }).then(r => r.json()).then(data => {
+    if (data.error) { alert(data.error); btn.disabled = false; btn.textContent = '开始拆解'; return; }
+    currentTask = data.task_id;
+    stepData = {};
+    renderAnalysis();
+    startPolling();
+  }).catch(() => { btn.disabled = false; btn.textContent = '开始拆解'; alert('请求失败'); });
+}
+
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(poll, 1500);
+  poll();
+}
+
+function poll() {
+  if (!currentTask) return;
+  fetch(`/api/task/${currentTask}`).then(r => r.json()).then(data => {
+    if (data.error) return;
+    if (data.title) {
+      document.title = data.title + ' — 短视频拆解';
+    }
+    if (data.progress) {
+      data.progress.forEach(p => {
+        stepData[p.step] = { ...stepData[p.step], ...p, ...data };
+      });
+    }
+    renderAnalysis();
+    if (data.status === 'completed' || data.status === 'failed') {
+      clearInterval(pollTimer); pollTimer = null;
+    }
+  }).catch(() => {});
+}
+
+function renderAnalysis() {
+  const area = document.getElementById('analysis-area');
+  if (!area) return;
+  const entries = Object.entries(STEP_META);
+  const steps = entries.map(([key, meta]) => {
+    const d = stepData[key];
+    return { key, meta, data: d || null, status: d ? d.status : 'pending' };
+  });
+
+  // Progress dots
+  let h = '';
+  const taskSt = window._taskStatus || 'running';
+  if (currentTask && taskSt !== 'running') {
+    const bc = taskSt === 'completed' ? '#30d158' : '#ff453a';
+    const bt = taskSt === 'completed' ? '分析完成' : '分析失败';
+    const bi = taskSt === 'completed' ? '✅' : '❌';
+    h += '<div style="background:' + bc + '22;border:1px solid ' + bc + '44;border-radius:14px;padding:14px 20px;margin-bottom:20px;display:flex;align-items:center;gap:10px"><span style="font-size:18px">' + bi + '</span><span style="font-weight:600;color:' + bc + ';font-size:14px">' + bt + '</span></div>';
+  }
+  h += '<div class="progress-line">';
+  steps.forEach(s => {
+    h += `<div class="progress-dot ${s.status}" title="${s.meta.label}"></div>`;
+  });
+  h += '</div>';
+
+  // Video section (show once downloaded)
+  const dl = stepData.download;
+  if (dl && dl.video_url) {
+    h += `<div class="section-title">📹 原始视频</div>`;
+    h += `<div class="video-section">
+      <video controls preload="metadata" src="${esc(dl.video_url)}"></video>
+      <div class="video-meta">
+        <span class="tag">视频ID: ${esc(dl.video_id || '')}</span>
+        ${dl.filesize ? `<span class="tag">${Math.round((dl.filesize||0)/1024)}KB</span>` : ''}
+      </div>
+    </div>`;
+  }
+
+  // Keyframes: either final frames or candidate selection
+  const fr = stepData.frames;
+  const isWaitingSelection = fr && fr.status === "waiting_selection" && fr.candidate_groups;
+  if (isWaitingSelection) {
+    h += '<div id="candidate-area">';
+    h += renderCandidateSelection(fr.candidate_groups);
+    h += '</div>';
+  } else if (fr && fr.frame_urls && fr.frame_urls.length > 0) {
+    h += '<div class="section-title">\uD83D\uDDBC\uFE0F 关键帧 (' + fr.frame_urls.length + '帧)</div>';
+    h += '<div class="frames-gallery">';
+    fr.frame_urls.forEach((url, i) => {
+      const stage = (fr.frame_stages && fr.frame_stages[i]) || '';
+      const analysis = (fr.frame_analysis && fr.frame_analysis[i]) || {};
+      const role = analysis.role || '';
+      const score = analysis.engagement_score || '';
+      let card = '<div class="frame-card" onclick="showModal(\'' + esc(url) + '\')">';
+      card += '<img src="' + esc(url) + '" loading="lazy" alt="frame ' + (i+1) + '"/>';
+      if (score) card += '<div class="frame-score">' + score + '/10</div>';
+      card += '<div class="frame-info">';
+      card += '<div class="frame-stage">帧' + (i+1) + ' · ' + esc(stage) + '</div>';
+      if (role) card += '<div class="frame-role">' + esc(role) + '</div>';
+      card += '</div></div>';
+      h += card;
+    });
+    h += '</div>';
+  }
+  // Step cards
+  h += `<div class="section-title">📊 拆解步骤</div>`;
+  steps.forEach((s, idx) => {
+    const statusClass = s.status;
+    const isOpen = s.status === 'running' || s.status === 'failed' || expandedSteps.has(s.key);
+    h += `<div class="step-card ${statusClass} ${isOpen ? 'open visible' : ''}" id="step-${s.key}" onclick="toggleStep('${s.key}')">
+      <div class="step-header">
+        <div class="step-num">${s.meta.num}</div>
+        <div class="step-title">${s.meta.label}</div>
+        <span class="step-badge">${statusText(s.status)}</span>
+        ${s.status==='done'||s.status==='failed'?'<span onclick="event.stopPropagation();rerunStep(\''+s.key+'\')" style="font-size:11px;color:var(--blue);cursor:pointer;padding:2px 8px;border-radius:980px;background:rgba(10,132,255,.1);margin-right:4px" title="\u91cd\u65b0\u6267\u884c">↻</span>':''}
+        <span class="arrow">▶</span>
+      </div>
+      <div class="step-detail" id="detail-${s.key}">${renderStepDetail(s.key, s.data)}</div>
+    </div>`;
+    // Animate in
+    setTimeout(() => {
+      const el = document.getElementById(`step-${s.key}`);
+      if (el) el.classList.add('visible');
+    }, 80 * idx);
+  });
+
+  area.innerHTML = h;
+}
+
+function statusText(s) {
+  if (s === 'done') return '✅ 完成';
+  if (s === 'running') return '⏳ 进行中';
+  if (s === 'failed') return '❌ 失败';
+  if (s === 'waiting_selection') return '🖼️ 请选择帧';
+  return '⏸ 待处理';
+}
+
+function toggleStep(key) {
+  expandedSteps.add(key);
+  const el = document.getElementById(`step-${key}`);
+  if (el) el.classList.add('open');
+}
+
+function renderStepDetail(step, data) {
+  if (!data) return '<span style="color:var(--sub)">等待中...</span>';
+  let h = '';
+
+  if (step === 'download') {
+    h += `<div class="text-block">${esc(data.detail || '下载中...')}</div>`;
+  }
+
+  if (step === 'transcribe') {
+    if (data.raw_text && data.corrected_text && data.raw_text !== data.corrected_text) {
+      h += `<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:600;color:var(--orange);margin-bottom:6px">🎤 原始转录</div><div class="text-block">${esc(data.raw_text)}</div></div>`;
+      h += `<div><div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:6px">✨ LLM纠错后</div><div class="text-block">${esc(data.corrected_text)}</div></div>`;
+    } else {
+      h += `<div class="text-block">${esc(data.corrected_text || data.detail || '')}</div>`;
+    }
+  }
+
+  if (step === 'structure') {
+    if (data.content_score != null) {
+      h += `<div class="grid">`;
+      if (data.hook_type) h += `<div class="metric"><div class="ml">钩子类型</div><div class="mv">${esc(data.hook_type)}</div></div>`;
+      if (data.hook_score != null) h += `<div class="metric"><div class="ml">钩子评分</div><div class="mv">${data.hook_score}/10</div><div class="score-bar"><div class="fill" style="width:${data.hook_score*10}%;background:var(--green)"></div></div></div>`;
+      if (data.content_score != null) h += `<div class="metric"><div class="ml">内容评分</div><div class="mv">${data.content_score}/10</div><div class="score-bar"><div class="fill" style="width:${data.content_score*10}%;background:var(--blue)"></div></div></div>`;
+      if (data.dominant_emotion) h += `<div class="metric"><div class="ml">主导情绪</div><div class="mv">${esc(data.dominant_emotion)}</div></div>`;
+      if (data.emotion_intensity != null) h += `<div class="metric"><div class="ml">情绪强度</div><div class="mv">${data.emotion_intensity}/10</div><div class="score-bar"><div class="fill" style="width:${data.emotion_intensity*10}%;background:var(--orange)"></div></div></div>`;
+      if (data.cta_type) h += `<div class="metric"><div class="ml">CTA类型</div><div class="mv">${esc(data.cta_type)}</div></div>`;
+      if (data.emotion_arc) h += `<div class="metric"><div class="ml">情绪曲线</div><div class="mv sm">${esc(data.emotion_arc)}</div></div>`;
+      if (data.content_rhythm) h += `<div class="metric"><div class="ml">内容节奏</div><div class="mv sm">${esc(data.content_rhythm)}</div></div>`;
+
+      h += `</div>`;
+    }
+    ['part1','part2','part3'].forEach(p => {
+      const txt = data[p+'_text'];
+      const ana = data[p+'_analysis'];
+      if (txt || ana) {
+        h += `<div style="margin-top:14px"><div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:6px">${p==='part1'?'🪝 钩子段':p==='part2'?'💬 主体段':'🎯 CTA段'}</div>`;
+        if (txt) h += `<div class="text-block">${esc(txt)}</div>`;
+        if (ana) h += `<div style="font-size:12px;color:var(--sub);margin-top:6px;padding-left:12px;border-left:2px solid var(--border)">${esc(ana)}</div>`;
+        h += `</div>`;
+      }
+    });
+  }
+
+  if (step === 'frames') {
+    if (data.frame_analysis && data.frame_analysis.length > 0) {
+      const fa = data.frame_analysis;
+      h += `<ul class="opt-list">`;
+      fa.forEach((f, i) => {
+        h += `<li>
+          <div><strong>[帧${f.frame||i+1}]</strong> ${esc(f.stage||'')} — ${esc(f.role||'')}</div>
+          ${f.visual_description ? `<div style="font-size:12px;color:var(--sub);margin-top:4px">画面：${esc(f.visual_description)}</div>` : ''}
+          ${f.composition ? `<div style="font-size:12px;color:var(--sub);margin-top:2px">构图：${esc(f.composition)}</div>` : ''}
+          ${f.color_strategy ? `<div style="font-size:12px;color:var(--sub);margin-top:2px">色彩：${esc(f.color_strategy)}</div>` : ''}
+          ${f.text_overlay ? `<div style="font-size:12px;color:var(--sub);margin-top:2px">文字：${esc(f.text_overlay)}</div>` : ''}
+          ${f.emotional_expression ? `<div style="font-size:12px;color:var(--sub);margin-top:2px">情绪：${esc(f.emotional_expression)}</div>` : ''}
+          ${f.visual_hooks ? `<div style="font-size:12px;color:var(--orange);margin-top:2px">视觉钩子：${esc(f.visual_hooks)}</div>` : ''}
+          ${f.improvement ? `<div style="font-size:12px;color:var(--orange);margin-top:4px">优化：${esc(f.improvement)}</div>` : ''}
+        </li>`;
+      });
+      h += `</ul>`;
+    }
+  }
+
+  if (step === 'viral' && data.viral_elements) {
+    h += `<div class="tag-list">${data.viral_elements.map(e => '<span class="tag">' + esc(typeof e === 'string' ? e : '') + '</span>').join('')}</div>`;
+  }
+
+  if (step === 'competitor' && data.competitor) {
+    const cp = data.competitor;
+    h += `<div class="grid">`;
+    if (cp.competitive_advantage) h += `<div class="metric"><div class="ml">差异化优势</div><div class="mv sm">${esc(cp.competitive_advantage)}</div></div>`;
+    if (cp.content_positioning) h += `<div class="metric"><div class="ml">内容定位</div><div class="mv sm">${esc(cp.content_positioning)}</div></div>`;
+    if (cp.unique_selling_angle) h += `<div class="metric"><div class="ml">独特切入角度</div><div class="mv sm">${esc(cp.unique_selling_angle)}</div></div>`;
+    if (cp.market_gap) { const gaps = Array.isArray(cp.market_gap) ? cp.market_gap : [cp.market_gap]; h += `<div style="margin-top:8px"><div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:6px">市场空白机会</div><ul class="opt-list">${gaps.map(e => "<li>" + esc(e) + "</li>").join("")}</ul></div>`; }
+    h += `</div>`;
+    if (cp.improvement_opportunities) { const items = Array.isArray(cp.improvement_opportunities) ? cp.improvement_opportunities : [cp.improvement_opportunities]; h += `<div style="margin-top:12px"><div style="font-size:12px;font-weight:600;color:var(--orange);margin-bottom:6px">竞品常用但本视频缺失的策略</div><ul class="opt-list">${items.map(e => '<li>' + esc(e) + '</li>').join('')}</ul></div>`; }
+  }
+
+  if (step === 'optimize' && data.optimization) {
+    h += `<ul class="opt-list">${data.optimization.map(o => '<li>' + esc(o) + '</li>').join('')}</ul>`;
+  }
+
+  if (step === 'rewrite') {
+    const script = data.optimized_script || '';
+    h += `<div class="text-block" id="current-script">${esc(script)}</div>`;
+    h += `<div class="refine-box" onclick="event.stopPropagation()">
+      <h4>💬 给出优化建议，AI 会重新调整文案</h4>
+      <div class="refine-row">
+        <textarea class="refine-input" id="refine-input" onclick="event.stopPropagation()" onfocus="event.stopPropagation()" placeholder="例如：钩子再短一点、加入价格锚点、语气更口语化..." rows="2"></textarea>
+        <button class="refine-btn" id="refine-btn" onclick="event.stopPropagation();submitRefine()">调整</button>
+      </div>
+      <div class="refine-history" id="refine-history"></div>
+    </div>`;
+  }
+
+  return h || '<span style="color:var(--sub)">等待中...</span>';
+}
+
+function submitRefine() {
+  const input = document.getElementById('refine-input');
+  const btn = document.getElementById('refine-btn');
+  const fb = input.value.trim();
+  if (!fb) return;
+  btn.disabled = true; btn.textContent = '调整中...';
+  const cur = document.getElementById('current-script').textContent;
+  const tr = stepData.transcribe?.corrected_text || '';
+  fetch('/api/refine', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ current_script: cur, feedback: fb, transcript: tr })
+  }).then(r => r.json()).then(data => {
+    if (data.error) { alert(data.error); }
+    else {
+      document.getElementById('current-script').textContent = data.refined_script;
+      const h = document.getElementById('refine-history');
+      const item = document.createElement('div');
+      item.className = 'refine-item';
+      item.innerHTML = `<div class="fb">建议: ${esc(fb)}</div>${esc(data.refined_script)}`;
+      h.prepend(item);
+      input.value = '';
+    }
+    btn.disabled = false; btn.textContent = '调整';
+  }).catch(() => { btn.disabled = false; btn.textContent = '调整'; alert('请求失败'); });
+}
+
+function showModal(u) {
+  document.getElementById('modalImg').src = u;
+  document.getElementById('imgModal').classList.add('show');
+}
+
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// Init
+renderInput();
+
+// Auto-load task from URL params
+(function(){
+  const params = new URLSearchParams(window.location.search);
+  const taskId = params.get('task');
+  const feishuId = params.get('feishu');
+  if(taskId){
+    currentTask = taskId;
+    stepData = {};
+    expandedSteps = new Set();
+    renderAnalysis();
+    startPolling();
+    // Fetch task detail
+    fetch('/api/task/'+taskId).then(r=>r.json()).then(data=>{
+      if(data.error){alert(data.error);return;}
+      if(data.title) document.title = data.title + ' — 短视频拆解';
+      window._taskStatus = data.status || 'completed';
+      if(data.progress){
+        const latest={};
+        data.progress.forEach(p=>{latest[p.step]=p;});
+        Object.keys(latest).forEach(s=>{stepData[s]={...stepData[s],...latest[s],...data};});
+      }
+      Object.keys(STEP_META).forEach(k=>{if(stepData[k]&&stepData[k].status==='done')expandedSteps.add(k);});
+      renderAnalysis();
+      if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
+    }).catch(()=>{});
+  } else if(feishuId){
+    stepData = {};
+    expandedSteps = new Set();
+    renderAnalysis();
+    fetch('/api/feishu/'+feishuId).then(r=>r.json()).then(data=>{
+      if(data.error){alert(data.error);return;}
+      if(data.title) document.title = data.title + ' — 短视频拆解';
+      window._taskStatus = 'completed';
+      if(data.progress){
+        const latest={};
+        data.progress.forEach(p=>{latest[p.step]=p;});
+        Object.keys(latest).forEach(s=>{stepData[s]={...stepData[s],...latest[s],...data};});
+      }
+      Object.keys(STEP_META).forEach(k=>{if(stepData[k]&&stepData[k].status==='done')expandedSteps.add(k);});
+      renderAnalysis();
+    }).catch(()=>{});
+  }
+})();
+
+// Load existing tasks list
+fetch('/api/tasks').then(r => r.json()).then(tasks => {
+  if (tasks && tasks.length > 0) {
+    // Show recent completed tasks below
+  }
+}).catch(() => {});
+
+// === Frame Selection UI ===
+let _frameSelections = {};
+let _candidateGroups = [];
+
+function renderCandidateSelection(groups) {
+  _candidateGroups = groups || [];
+  _frameSelections = {};
+  const totalSlots = _candidateGroups.length;
+  const sectionOrder = ["hook","content","cta"];
+  const sectionLabels = {hook:"钩子",content:"内容",cta:"CTA"};
+  const sectionDescs = {hook:"开篇吸引",content:"核心内容",cta:"行动号召"};
+  const grouped = {};
+  _candidateGroups.forEach(g => {
+    if (!grouped[g.section]) grouped[g.section] = [];
+    grouped[g.section].push(g);
+  });
+
+  let h = '';
+  h += '<div class="candidate-section">';
+  h += '<div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:6px">🖼️ 选择关键帧</div>';
+  h += '<div style="font-size:12px;color:var(--sub);margin-bottom:20px">每组选一张最喜欢的，共选 ' + totalSlots + ' 张</div>';
+
+  sectionOrder.forEach(sec => {
+    const items = grouped[sec];
+    if (!items || items.length === 0) return;
+    h += '<div class="candidate-section-header">';
+    h += '<span class="candidate-section-badge">' + sectionLabels[sec] + '</span>';
+    h += '<span class="candidate-section-title">' + sectionDescs[sec] + '</span>';
+    h += '<span class="candidate-section-desc">选 ' + items.length + ' 张</span>';
+    h += '</div>';
+
+    items.forEach(g => {
+      h += '<div class="candidate-group">';
+      h += '<div class="candidate-group-label"><span class="slot-num">槽位 #' + g.slot_index + '</span> ' + formatTs(g.center_timestamp) + '</div>';
+      h += '<div class="candidate-options">';
+      g.options.forEach(opt => {
+        const selClass = _frameSelections[g.slot_index] === opt.option ? ' selected' : '';
+        h += '<div class="candidate-option' + selClass + '" onclick="selectCandidate(' + g.slot_index + ',' + opt.option + ')">';
+        h += '<div class="opt-check">✓</div>';
+        h += '<img src="' + esc(opt.url) + '" loading="lazy"/>';
+        h += '<div class="opt-score">' + Math.round(opt.quality_score) + '</div>';
+        h += '<div class="opt-label">' + formatTs(opt.timestamp) + '</div>';
+        h += '</div>';
+      });
+      h += '</div></div>';
+    });
+  });
+
+  const selectedCount = Object.keys(_frameSelections).length;
+  h += '<div class="candidate-submit-bar">';
+  h += '<span class="selected-count">已选 <strong>' + selectedCount + ' / ' + totalSlots + '</strong> 张</span>';
+  h += '<button class="candidate-submit-btn" id="submitFrameBtn" disabled onclick="submitFrameSelections()">确认选择</button>';
+  h += '</div>';
+  h += '</div>';
+
+  return h;
+}
+
+function selectCandidate(slotIndex, option) {
+  _frameSelections[slotIndex] = option;
+  const container = document.getElementById('candidate-area');
+  if (container) {
+    container.innerHTML = renderCandidateSelection(_candidateGroups);
+  }
+  const totalSlots = _candidateGroups.length;
+  const selectedCount = Object.keys(_frameSelections).length;
+  const btn = document.getElementById('submitFrameBtn');
+  if (btn) {
+    btn.disabled = selectedCount < totalSlots;
+    if (selectedCount === totalSlots) btn.style.background = 'var(--green)';
+  }
+}
+
+function submitFrameSelections() {
+  if (!currentTask) return;
+  const totalSlots = _candidateGroups.length;
+  if (Object.keys(_frameSelections).length < totalSlots) return;
+  const btn = document.getElementById('submitFrameBtn');
+  if (btn) { btn.textContent = '提交中...'; btn.disabled = true; }
+  fetch('/api/task/' + currentTask + '/select-frames', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({selections: _frameSelections})
+  }).then(r => r.json()).then(d => {
+    if (d.ok) {
+      const area = document.getElementById('candidate-area');
+      if (area) area.innerHTML = '<div style="padding:16px;color:var(--green);font-weight:600">✓ 选择已提交，继续分析...</div>';
+    } else {
+      alert(d.error || '提交失败');
+      if (btn) { btn.textContent = '确认选择'; btn.disabled = false; }
+    }
+  }).catch(e => {
+    alert('网络错误: ' + e.message);
+    if (btn) { btn.textContent = '确认选择'; btn.disabled = false; }
+  });
+}
+
+function formatTs(ts) {
+  if (typeof ts !== 'number') return '';
+  const m = Math.floor(ts / 60);
+  const s = Math.floor(ts % 60);
+  return m + ':' + (s < 10 ? '0' : '') + s;
+}
+</script>
+</body>
+</html>
+
+</body>
+</html>
