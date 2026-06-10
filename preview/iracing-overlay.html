@@ -1,0 +1,275 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iRacing Corner Analyzer - SimHub Overlay</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Consolas', 'Courier New', monospace; background: #111; color: #fff; overflow: hidden; width: 360px; height: 200px; }
+
+.overlay { width: 100%; height: 100%; padding: 6px; display: flex; gap: 6px; }
+
+/* Left: Pedals */
+.pedal-card {
+  width: 180px;
+  background: rgba(0,0,0,0.9);
+  border-radius: 10px;
+  padding: 10px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.pedal-title { font-size: 8px; color: rgba(255,255,255,0.3); letter-spacing: 2px; text-transform: uppercase; text-align: center; margin-bottom: 8px; }
+.pedal-section { margin-bottom: 6px; }
+.pedal-section:last-child { margin-bottom: 0; }
+.pedal-label { font-size: 8px; color: rgba(255,255,255,0.35); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 1px; }
+.pedal-row { display: flex; gap: 4px; align-items: center; margin-bottom: 2px; }
+.pedal-name { font-size: 9px; color: rgba(255,255,255,0.3); width: 28px; }
+.pedal-val { font-size: 14px; font-weight: 700; width: 36px; text-align: right; }
+.pedal-bar { flex: 1; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; position: relative; }
+.pedal-bar-fill { height: 100%; border-radius: 4px; position: absolute; top: 0; left: 0; transition: width 0.05s; }
+.pedal-bar-you { z-index: 2; }
+.pedal-bar-ref { z-index: 1; opacity: 0.4; }
+.pedal-divider { height: 1px; background: rgba(255,255,255,0.06); margin: 6px 0; }
+
+/* Right: Speed */
+.speed-card {
+  flex: 1;
+  background: rgba(0,0,0,0.9);
+  border-radius: 10px;
+  padding: 14px;
+  border: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+.speed-title { font-size: 8px; color: rgba(255,255,255,0.3); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px; }
+.speed-you { font-size: 44px; font-weight: 800; line-height: 1; }
+.speed-ref-row { display: flex; align-items: baseline; gap: 6px; margin-top: 4px; }
+.speed-ref-label { font-size: 10px; color: rgba(255,255,255,0.3); }
+.speed-ref-val { font-size: 16px; font-weight: 600; color: rgba(255,255,255,0.5); }
+.speed-delta { font-size: 18px; font-weight: 700; margin-top: 4px; }
+.speed-bar { width: 100%; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; margin-top: 8px; overflow: hidden; position: relative; }
+.speed-bar-ref { height: 100%; border-radius: 3px; position: absolute; top: 0; left: 0; background: #30d158; opacity: 0.25; transition: width 0.05s; }
+.speed-bar-you { height: 100%; border-radius: 3px; position: absolute; top: 0; left: 0; transition: width 0.05s; }
+.corner-name { font-size: 11px; color: rgba(255,255,255,0.25); margin-top: 6px; letter-spacing: 1px; }
+
+.bad { color: #ff453a; }
+.good { color: #30d158; }
+.neutral { color: #ff9f0a; }
+</style>
+</head>
+<body>
+<div class="overlay">
+  <!-- Pedals -->
+  <div class="pedal-card">
+    <div class="pedal-title">pedals</div>
+
+    <!-- Brake -->
+    <div class="pedal-section">
+      <div class="pedal-label">brake</div>
+      <div class="pedal-row">
+        <span class="pedal-name">you</span>
+        <span class="pedal-val bad" id="brakeYouVal">0</span>
+        <div class="pedal-bar">
+          <div class="pedal-bar-fill pedal-bar-ref" id="brakeRefBar" style="width:0%;background:#ff453a"></div>
+          <div class="pedal-bar-fill pedal-bar-you" id="brakeYouBar" style="width:0%;background:#ff453a"></div>
+        </div>
+      </div>
+      <div class="pedal-row">
+        <span class="pedal-name">ref</span>
+        <span class="pedal-val" style="color:rgba(255,69,58,0.5)" id="brakeRefVal">0</span>
+        <div class="pedal-bar">
+          <div class="pedal-bar-fill" style="width:0%;background:#ff453a;opacity:0.2" id="brakeRefBar2"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pedal-divider"></div>
+
+    <!-- Throttle -->
+    <div class="pedal-section">
+      <div class="pedal-label">throttle</div>
+      <div class="pedal-row">
+        <span class="pedal-name">you</span>
+        <span class="pedal-val good" id="throttleYouVal">0</span>
+        <div class="pedal-bar">
+          <div class="pedal-bar-fill pedal-bar-ref" id="throttleRefBar" style="width:0%;background:#30d158"></div>
+          <div class="pedal-bar-fill pedal-bar-you" id="throttleYouBar" style="width:0%;background:#30d158"></div>
+        </div>
+      </div>
+      <div class="pedal-row">
+        <span class="pedal-name">ref</span>
+        <span class="pedal-val" style="color:rgba(48,209,88,0.5)" id="throttleRefVal">0</span>
+        <div class="pedal-bar">
+          <div class="pedal-bar-fill" style="width:0%;background:#30d158;opacity:0.2" id="throttleRefBar2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Speed -->
+  <div class="speed-card">
+    <div class="speed-title">speed</div>
+    <div class="speed-you" id="speedYou">0</div>
+    <div class="speed-ref-row">
+      <span class="speed-ref-label">Garage61</span>
+      <span class="speed-ref-val" id="speedRef">0</span>
+      <span class="speed-ref-label">km/h</span>
+    </div>
+    <div class="speed-delta" id="speedDelta">0</div>
+    <div class="speed-bar">
+      <div class="speed-bar-ref" id="speedBarRef" style="width:0%"></div>
+      <div class="speed-bar-you" id="speedBarYou" style="width:0%;background:#0a84ff"></div>
+    </div>
+    <div class="corner-name" id="cornerName">---</div>
+  </div>
+</div>
+
+<script>
+var corners = [
+  { name: 'T1 右弯', pos: 12 },
+  { name: 'T2 左弯', pos: 28 },
+  { name: 'T3 发卡弯', pos: 45 },
+  { name: 'T4 高速弯', pos: 62 },
+  { name: 'T5 减速弯', pos: 78 },
+  { name: 'T6 右弯', pos: 90 }
+];
+
+var cornerConfigs = {
+  '发卡弯': { depth: 150, width: 12, refExtra: 5 },
+  '高速弯': { depth: 50, width: 8, refExtra: 10 },
+  'default': { depth: 120, width: 10, refExtra: 5 }
+};
+
+function getConfig(type) {
+  return cornerConfigs[type] || cornerConfigs['default'];
+}
+
+function refSpeedAt(p) {
+  var base = 200;
+  corners.forEach(function(c) {
+    var type = c.name.split(' ')[1];
+    var cfg = getConfig(type);
+    var dist = Math.abs(p - c.pos);
+    if (dist < cfg.width) base -= (cfg.depth + cfg.refExtra) * Math.cos(dist / cfg.width * Math.PI / 2);
+  });
+  return Math.max(40, base);
+}
+
+function yourSpeedAt(p) {
+  var base = 195;
+  corners.forEach(function(c) {
+    var type = c.name.split(' ')[1];
+    var cfg = getConfig(type);
+    var dist = Math.abs(p - c.pos);
+    if (dist < cfg.width) base -= cfg.depth * Math.cos(dist / cfg.width * Math.PI / 2);
+  });
+  return Math.max(35, base);
+}
+
+// Ref brakes earlier and harder
+function refBrakeAt(p) {
+  var b = 0;
+  corners.forEach(function(c) {
+    var dist = p - c.pos;
+    if (dist > -18 && dist < 2) b = Math.max(b, 95 * Math.cos(dist / 9 * Math.PI / 2));
+  });
+  return Math.min(100, b);
+}
+
+// Your brake: later and lighter
+function yourBrakeAt(p) {
+  var b = 0;
+  corners.forEach(function(c) {
+    var dist = p - c.pos;
+    if (dist > -15 && dist < 2) b = Math.max(b, 85 * Math.cos(dist / 8 * Math.PI / 2));
+  });
+  return Math.min(100, b);
+}
+
+// Ref gets on throttle earlier
+function refThrottleAt(p) {
+  var t = 0;
+  corners.forEach(function(c) {
+    var dist = p - c.pos;
+    if (dist > -2 && dist < 18) t = Math.max(t, 95 * Math.cos(dist / 9 * Math.PI / 2));
+  });
+  if (t < 5) t = 85 + Math.sin(p * 0.1) * 10;
+  return Math.min(100, t);
+}
+
+// Your throttle: later
+function yourThrottleAt(p) {
+  var t = 0;
+  corners.forEach(function(c) {
+    var dist = p - c.pos;
+    if (dist > -2 && dist < 15) t = Math.max(t, 90 * Math.cos(dist / 8 * Math.PI / 2));
+  });
+  if (t < 5) t = 80 + Math.sin(p * 0.1) * 15;
+  return Math.min(100, t);
+}
+
+function nearestCorner(p) {
+  var nearest = null;
+  var minDist = 999;
+  corners.forEach(function(c) {
+    var d = Math.abs(p - c.pos);
+    if (d < minDist) { minDist = d; nearest = c; }
+  });
+  return minDist < 12 ? nearest.name : '---';
+}
+
+var maxSpeed = 230;
+var currentPos = 0;
+
+function update() {
+  currentPos += 0.35;
+  if (currentPos > 100) currentPos = 0;
+
+  var you = yourSpeedAt(currentPos);
+  var ref = refSpeedAt(currentPos);
+  var brakeYou = yourBrakeAt(currentPos);
+  var brakeRef = refBrakeAt(currentPos);
+  var throttleYou = yourThrottleAt(currentPos);
+  var throttleRef = refThrottleAt(currentPos);
+
+  // Brake values
+  document.getElementById('brakeYouVal').textContent = Math.round(brakeYou);
+  document.getElementById('brakeYouBar').style.width = brakeYou + '%';
+  document.getElementById('brakeRefVal').textContent = Math.round(brakeRef);
+  document.getElementById('brakeRefBar').style.width = brakeRef + '%';
+
+  // Throttle values
+  document.getElementById('throttleYouVal').textContent = Math.round(throttleYou);
+  document.getElementById('throttleYouBar').style.width = throttleYou + '%';
+  document.getElementById('throttleRefVal').textContent = Math.round(throttleRef);
+  document.getElementById('throttleRefBar').style.width = throttleRef + '%';
+
+  // Speed
+  var youEl = document.getElementById('speedYou');
+  youEl.textContent = Math.round(you);
+  var delta = you - ref;
+  youEl.className = 'speed-you ' + (delta > 2 ? 'good' : delta < -2 ? 'bad' : 'neutral');
+
+  document.getElementById('speedRef').textContent = Math.round(ref);
+
+  var deltaEl = document.getElementById('speedDelta');
+  deltaEl.textContent = (delta >= 0 ? '+' : '') + Math.round(delta) + ' km/h';
+  deltaEl.className = 'speed-delta ' + (delta > 2 ? 'good' : delta < -2 ? 'bad' : 'neutral');
+
+  // Speed bar
+  document.getElementById('speedBarYou').style.width = (you / maxSpeed * 100) + '%';
+  document.getElementById('speedBarYou').style.background = delta > 2 ? '#30d158' : delta < -2 ? '#ff453a' : '#0a84ff';
+  document.getElementById('speedBarRef').style.width = (ref / maxSpeed * 100) + '%';
+
+  // Corner name
+  document.getElementById('cornerName').textContent = nearestCorner(currentPos);
+
+  requestAnimationFrame(update);
+}
+
+update();
+</script>
+</body>
+</html>
