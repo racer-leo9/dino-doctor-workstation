@@ -1,0 +1,17 @@
+﻿__pycache__/
+*.pyc
+.venv/
+*.log
+*.bak
+chrome_cdp_profile/
+chrome_profile/
+.agents/
+tools/
+test_frames/
+deploy-hf/
+web/chat/
+web/*.exe
+web/*.txt
+web/*.log
+web/*.bat
+web/*.png
