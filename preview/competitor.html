@@ -1,0 +1,473 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>对标收集 - 预览</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif; background: #0a0a0a; color: #f5f5f7; min-height: 100vh; color-scheme: dark; }
+.app { display: flex; min-height: 100vh; }
+
+/* Sidebar */
+.sidebar { width: 220px; background: rgba(30,30,30,0.8); backdrop-filter: blur(40px); border-right: 1px solid rgba(255,255,255,0.06); padding: 24px 16px; flex-shrink: 0; }
+.sidebar-title { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 32px; letter-spacing: 0.5px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; cursor: pointer; font-size: 14px; color: rgba(255,255,255,0.5); margin-bottom: 4px; transition: all 0.2s; }
+.nav-item:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); }
+.nav-item.active { background: rgba(255,255,255,0.1); color: #fff; }
+.nav-icon { width: 20px; text-align: center; font-size: 15px; }
+
+/* Main */
+.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: 100vh; }
+.page-title { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+.page-desc { font-size: 14px; color: rgba(255,255,255,0.4); margin-bottom: 28px; }
+
+/* Glass card */
+.glass-card { background: rgba(255,255,255,0.04); backdrop-filter: blur(30px); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 24px; margin-bottom: 20px; }
+
+/* Search form */
+.search-row { display: flex; gap: 12px; align-items: flex-end; margin-bottom: 16px; }
+.form-group { flex: 1; }
+.form-label { font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 6px; display: block; font-weight: 600; }
+.form-input { width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.06); color: #fff; font-size: 14px; outline: none; transition: border-color 0.2s; }
+.form-input:focus { border-color: rgba(0,122,255,0.5); }
+.form-select { width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); background: rgba(30,30,30,0.95); color: #fff; font-size: 14px; outline: none; cursor: pointer; color-scheme: dark; }
+.form-select option { background: #1c1c1e; color: #f5f5f7; padding: 8px; color-scheme: dark; }
+
+/* Tags */
+.tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.tag { padding: 6px 14px; border-radius: 20px; font-size: 12px; background: rgba(0,122,255,0.08); color: rgba(0,122,255,0.8); cursor: pointer; transition: all 0.2s; border: 1px solid rgba(0,122,255,0.25); }
+.tag:hover { background: rgba(0,122,255,0.15); border-color: rgba(0,122,255,0.4); }
+.tag.selected { background: rgba(52,199,89,0.2); color: #34C959; border-color: rgba(52,199,89,0.4); }
+.tag-remove { margin-left: 6px; opacity: 0.4; cursor: pointer; font-size: 14px; line-height: 1; }
+.tag-remove:hover { opacity: 1; color: #FF3B30; }
+
+/* Buttons */
+.btn { padding: 10px 24px; border-radius: 10px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.btn-primary { background: linear-gradient(135deg, #007AFF, #5856D6); color: #fff; }
+.btn-primary:hover { transform: scale(1.02); box-shadow: 0 4px 20px rgba(0,122,255,0.3); }
+.btn-secondary { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
+.btn-secondary:hover { background: rgba(255,255,255,0.12); }
+.btn-sm { padding: 6px 16px; font-size: 12px; }
+
+/* Progress */
+.progress-bar { width: 100%; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; margin: 16px 0; overflow: hidden; display: none; }
+.progress-bar.show { display: block; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #007AFF, #5856D6); border-radius: 2px; width: 0%; transition: width 0.5s ease; }
+.progress-text { font-size: 12px; color: rgba(255,255,255,0.4); margin-bottom: 12px; display: none; }
+.progress-text.show { display: block; }
+
+/* Results grid */
+.results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.results-count { font-size: 14px; color: rgba(255,255,255,0.5); }
+.results-actions { display: flex; gap: 10px; }
+.results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+
+/* Video card */
+.video-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; overflow: hidden; transition: all 0.25s; position: relative; }
+.video-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.12); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+.video-card.selected { border-color: rgba(0,122,255,0.5); }
+.video-thumb { width: 100%; aspect-ratio: 9/12; background: #1a1a1a; position: relative; overflow: hidden; }
+.video-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.video-thumb-overlay { position: absolute; inset: 0; background: linear-gradient(transparent 60%, rgba(0,0,0,0.7)); display: flex; align-items: flex-end; padding: 12px; }
+.video-duration { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); padding: 2px 8px; border-radius: 6px; font-size: 11px; }
+.video-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 44px; height: 44px; background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); border-radius: 50%; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; cursor: pointer; }
+.video-card:hover .video-play { opacity: 1; }
+.video-check { position: absolute; top: 8px; left: 8px; width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+.video-card.selected .video-check { background: #007AFF; border-color: #007AFF; }
+.video-check-mark { color: #fff; font-size: 14px; opacity: 0; }
+.video-card.selected .video-check-mark { opacity: 1; }
+.video-info { padding: 14px; }
+.video-title { font-size: 13px; font-weight: 500; line-height: 1.4; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.video-author { font-size: 12px; color: rgba(255,255,255,0.4); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.video-author-avatar { width: 18px; height: 18px; border-radius: 50%; background: rgba(255,255,255,0.1); }
+.video-stats { display: flex; gap: 14px; font-size: 12px; color: rgba(255,255,255,0.35); }
+.video-stat { display: flex; align-items: center; gap: 4px; }
+.video-relevance { position: absolute; bottom: 0; left: 0; right: 0; padding: 6px 14px; background: rgba(0,0,0,0.5); backdrop-filter: blur(10px); display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+.relevance-score { padding: 2px 8px; border-radius: 6px; font-weight: 600; }
+.score-high { background: rgba(52,199,89,0.2); color: #34C959; }
+.score-mid { background: rgba(255,149,0,0.2); color: #FF9500; }
+.score-low { background: rgba(255,59,48,0.2); color: #FF3B30; }
+
+/* Sort tabs */
+.sort-tabs { display: flex; gap: 6px; }
+.sort-tab { padding: 6px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.4); transition: all 0.2s; }
+.sort-tab:hover { background: rgba(255,255,255,0.08); }
+.sort-tab.active { background: rgba(0,122,255,0.15); color: #007AFF; }
+
+/* Empty state */
+.empty-state { text-align: center; padding: 80px 20px; color: rgba(255,255,255,0.3); }
+.empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+.empty-text { font-size: 15px; margin-bottom: 8px; }
+.empty-hint { font-size: 12px; color: rgba(255,255,255,0.2); }
+
+/* Loading skeleton */
+.skeleton { background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* Video Modal */
+.video-modal { display: none; position: fixed; inset: 0; z-index: 9998; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); align-items: center; justify-content: center; }
+.video-modal.show { display: flex; }
+.video-modal-content { position: relative; width: 90%; max-width: 400px; border-radius: 16px; overflow: hidden; background: #000; }
+.video-modal-content video { width: 100%; display: block; max-height: 80vh; }
+.video-modal-close { position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; border-radius: 50%; background: rgba(0,0,0,0.5); backdrop-filter: blur(10px); border: none; color: #fff; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; }
+.video-modal-info { padding: 14px 16px; background: rgba(30,30,30,0.95); }
+.video-modal-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+.video-modal-author { font-size: 12px; color: rgba(255,255,255,0.4); }
+
+/* Toast */
+.toast { position: fixed; top: 24px; right: 24px; background: rgba(30,30,30,0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px 20px; font-size: 13px; z-index: 9999; transform: translateX(120%); transition: transform 0.3s ease; }
+.toast.show { transform: translateX(0); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .main { padding: 20px; }
+  .results-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-title">恐龙医生内容工作台</div>
+    <div class="nav-item"><span class="nav-icon">📊</span>拆解工作台</div>
+    <div class="nav-item"><span class="nav-icon">📝</span>文案生成</div>
+    <div class="nav-item"><span class="nav-icon">🖼️</span>AI图片生成</div>
+    <div class="nav-item"><span class="nav-icon">🎬</span>AI视频生成</div>
+    <div class="nav-item"><span class="nav-icon">📋</span>分析报告</div>
+    <div class="nav-item active"><span class="nav-icon">🔍</span>对标收集</div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="page-title">🔍 对标视频收集</div>
+    <div class="page-desc">根据已拆解视频的关键词，自动搜索抖音同类型带货种草视频</div>
+
+    <!-- Search Card -->
+    <div class="glass-card">
+      <div class="search-row">
+        <div class="form-group" style="flex:2">
+          <label class="form-label">搜索关键词</label>
+          <input class="form-input" id="search-keyword" value="漱口水推荐" placeholder="输入产品名称或品类关键词">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">结果数量</label>
+          <select class="form-select" id="search-limit">
+            <option value="10">10 条</option>
+            <option value="20" selected>20 条</option>
+            <option value="30">30 条</option>
+            <option value="50">50 条</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">排序方式</label>
+          <select class="form-select" id="search-sort">
+            <option value="relevance">综合排序</option>
+            <option value="play">播放量优先</option>
+            <option value="like">点赞优先</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="startSearch()">开始搜索</button>
+      </div>
+
+      <!-- Auto-extracted tags -->
+      <div class="form-label">搜索关键词（点击选择/取消，可自定义添加）</div>
+      <div class="tags" id="auto-tags">
+        <div class="tag selected" onclick="toggleTag(this)">漱口水</div>
+        <div class="tag selected" onclick="toggleTag(this)">美白</div>
+        <div class="tag selected" onclick="toggleTag(this)">口腔护理</div>
+        <div class="tag" onclick="toggleTag(this)">口气清新</div>
+        <div class="tag" onclick="toggleTag(this)">牙齿美白</div>
+        <div class="tag" onclick="toggleTag(this)">口腔清洁</div>
+        <div class="tag" onclick="toggleTag(this)">好物推荐</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+        <input class="form-input" id="custom-keyword" placeholder="输入自定义关键词..." style="flex:1;padding:8px 12px;font-size:13px" onkeydown="if(event.key==='Enter')addCustomTag()">
+        <button class="btn btn-secondary btn-sm" onclick="addCustomTag()">+ 添加</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06)">
+        <span style="font-size:12px;color:rgba(255,255,255,0.5);white-space:nowrap;font-weight:600">从报告提取</span>
+        <select class="form-select" id="report-select" style="flex:1;padding:8px 12px;font-size:13px" onchange="extractFromReport(this.value)">
+          <option value="">选择分析报告自动填充关键词...</option>
+          <option value="r1">呼吸海洋漱口水 | 美白去黄推荐</option>
+          <option value="r2">碘络酮漱口水 | 清新口气推荐</option>
+          <option value="r3">阿拉福牙膏 | 牙套党护牙推荐</option>
+        </select>
+      </div>
+
+      <!-- Progress -->
+      <div class="progress-text" id="progress-text">正在搜索...</div>
+      <div class="progress-bar" id="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    </div>
+
+    <!-- Results -->
+    <div id="results-area" style="display:none">
+      <div class="results-header">
+        <div class="results-count" id="results-count">找到 20 条对标视频</div>
+        <div class="results-actions">
+          <button class="btn btn-secondary btn-sm" onclick="selectAll()">全选</button>
+          <button class="btn btn-secondary btn-sm" onclick="deselectAll()">取消全选</button>
+          <button class="btn btn-primary btn-sm" id="batch-btn" onclick="batchDissect()">批量拆解 (0)</button>
+        </div>
+      </div>
+      <div class="results-grid" id="results-grid"></div>
+    </div>
+
+    <!-- Empty state -->
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon">🔍</div>
+      <div class="empty-text">输入关键词开始搜索对标视频</div>
+      <div class="empty-hint">支持从拆解报告自动提取关键词，也可手动输入</div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// Mock data
+var mockResults = [
+  { title: "漱口水千万别乱买！这款真的能美白牙齿", author: "口腔护理小王", fans: "32.6w", play: "56.3w", like: "2.1w", duration: "0:45", score: 9, cover: "https://picsum.photos/seed/s1/300/400" },
+  { title: "坚持用漱口水30天，牙齿真的变白了", author: "美白日记", fans: "18.2w", play: "42.1w", like: "1.8w", duration: "1:02", score: 9, cover: "https://picsum.photos/seed/s2/300/400" },
+  { title: "口腔科医生推荐的漱口水，口气清新一整天", author: "牙医说", fans: "89.4w", play: "38.7w", like: "1.5w", duration: "0:38", score: 8, cover: "https://picsum.photos/seed/s3/300/400" },
+  { title: "平价漱口水测评！学生党也能买得起", author: "好物种草机", fans: "45.1w", play: "31.2w", like: "1.2w", duration: "1:15", score: 8, cover: "https://picsum.photos/seed/s4/300/400" },
+  { title: "告别口臭！这款漱口水真的绝了", author: "生活好物分享", fans: "12.8w", play: "28.9w", like: "9.8k", duration: "0:52", score: 8, cover: "https://picsum.photos/seed/s5/300/400" },
+  { title: "漱口水使用误区，90%的人都用错了", author: "健康科普君", fans: "156w", play: "25.4w", like: "8.6k", duration: "0:41", score: 7, cover: "https://picsum.photos/seed/s6/300/400" },
+  { title: "约会前必备！口气清新神器推荐", author: "精致女孩Lily", fans: "28.3w", play: "22.1w", like: "7.9k", duration: "0:33", score: 7, cover: "https://picsum.photos/seed/s7/300/400" },
+  { title: "正畸人必备漱口水，清洁死角超干净", author: "牙套日记", fans: "9.7w", play: "19.8w", like: "6.5k", duration: "1:08", score: 7, cover: "https://picsum.photos/seed/s8/300/400" },
+  { title: "成分党测评：5款漱口水深度对比", author: "成分研究员", fans: "67.2w", play: "17.3w", like: "5.4k", duration: "2:30", score: 7, cover: "https://picsum.photos/seed/s9/300/400" },
+  { title: "牙齿美白不花冤枉钱，这个方法亲测有效", author: "省钱好物姐", fans: "34.5w", play: "15.6w", like: "4.8k", duration: "0:58", score: 6, cover: "https://picsum.photos/seed/s10/300/400" },
+  { title: "口腔护理全攻略！从牙刷到漱口水", author: "健康生活家", fans: "21.9w", play: "13.2w", like: "4.1k", duration: "1:45", score: 6, cover: "https://picsum.photos/seed/s11/300/400" },
+  { title: "这款漱口水火了！直播间都在推", author: "直播好物推荐", fans: "55.8w", play: "12.8w", like: "3.9k", duration: "0:28", score: 6, cover: "https://picsum.photos/seed/s12/300/400" },
+  { title: "敏感牙龈救星！温和不刺激的漱口水", author: "敏感肌小助手", fans: "15.3w", play: "11.5w", like: "3.5k", duration: "0:47", score: 5, cover: "https://picsum.photos/seed/s13/300/400" },
+  { title: "早晚各一次，口腔问题全解决", author: "养生达人", fans: "42.6w", play: "10.1w", like: "3.2k", duration: "1:12", score: 5, cover: "https://picsum.photos/seed/s14/300/400" },
+  { title: "出差旅行必带好物清单！", author: "旅行博主小陈", fans: "78.4w", play: "9.8w", like: "2.9k", duration: "0:55", score: 4, cover: "https://picsum.photos/seed/s15/300/400" },
+  { title: "每天坚持这个习惯，牙齿越来越白", author: "自律打卡", fans: "23.1w", play: "8.7w", like: "2.6k", duration: "0:36", score: 5, cover: "https://picsum.photos/seed/s16/300/400" },
+  { title: "口腔护理好物合集｜回购N次了", author: "好物收藏家", fans: "31.7w", play: "7.9w", like: "2.3k", duration: "1:20", score: 6, cover: "https://picsum.photos/seed/s17/300/400" },
+  { title: "被闺蜜种草的漱口水，用完真香", author: "闺蜜种草间", fans: "16.9w", play: "6.5w", like: "1.9k", duration: "0:42", score: 7, cover: "https://picsum.photos/seed/s18/300/400" },
+  { title: "新手必看！漱口水选购避坑指南", author: "消费指南针", fans: "27.5w", play: "5.8w", like: "1.7k", duration: "1:35", score: 6, cover: "https://picsum.photos/seed/s19/300/400" },
+  { title: "夏日清新口气小技巧，简单又有效", author: "夏日生活", fans: "11.4w", play: "4.2w", like: "1.2k", duration: "0:30", score: 4, cover: "https://picsum.photos/seed/s20/300/400" }
+];
+
+var selected = {};
+
+function toggleTag(el) { el.classList.toggle('selected'); }
+// Mock report keywords
+var reportKeywords = {
+  r1: ["漱口水","美白","去黄","口腔护理","呼吸海洋","牙齿亮白","色修漱口水"],
+  r2: ["漱口水","清新口气","碘络酮","口腔清洁","口气清新","杀菌抑菌"],
+  r3: ["牙膏","正畸护理","牙套清洁","阿拉福","奥拉氟","口腔护理","牙齿防护"]
+};
+function extractFromReport(val) {
+  if (!val) return;
+  var kws = reportKeywords[val] || [];
+  var container = document.getElementById("auto-tags");
+  // Clear existing
+  container.innerHTML = "";
+  kws.forEach(function(kw) {
+    var tag = document.createElement("div");
+    tag.className = "tag selected";
+    tag.innerHTML = esc(kw) + '<span class="tag-remove" onclick="event.stopPropagation();this.parentElement.remove()">×</span>';
+    tag.onclick = function() { toggleTag(tag); };
+    container.appendChild(tag);
+  });
+  showToast("✅ 已提取 " + kws.length + " 个关键词");
+  document.getElementById("report-select").value = "";
+}
+function addCustomTag() {
+  var input = document.getElementById("custom-keyword");
+  var val = input.value.trim();
+  if (!val) return;
+  // Check duplicate
+  var existing = document.querySelectorAll("#auto-tags .tag");
+  for (var i = 0; i < existing.length; i++) {
+    if (existing[i].textContent.replace("×","").trim() === val) {
+      existing[i].classList.add("selected");
+      input.value = "";
+      return;
+    }
+  }
+  var tag = document.createElement("div");
+  tag.className = "tag selected";
+  tag.innerHTML = esc(val) + '<span class="tag-remove" onclick="event.stopPropagation();this.parentElement.remove()">×</span>';
+  tag.onclick = function() { toggleTag(tag); };
+  document.getElementById("auto-tags").appendChild(tag);
+  input.value = "";
+}
+
+function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function scoreClass(s) { if (s >= 8) return 'score-high'; if (s >= 6) return 'score-mid'; return 'score-low'; }
+function formatNum(n) { return n; }
+
+function renderCards(list) {
+  var grid = document.getElementById('results-grid');
+  grid.innerHTML = list.map(function(v, i) {
+    var sel = selected[i] ? ' selected' : '';
+    return '<div class="video-card' + sel + '" data-idx="' + i + '">' +
+      '<div class="video-thumb">' +
+        '<img src="' + esc(v.cover) + '" alt="" loading="lazy">' +
+        '<div class="video-check" onclick="toggleSelect(' + i + ')"><span class="video-check-mark">✓</span></div>' +
+        '<div class="video-duration">' + esc(v.duration) + '</div>' +
+        '<div class="video-play" onclick="event.stopPropagation();openVideoModal('+i+')">▶</div>' +
+      '</div>' +
+      '<div class="video-info">' +
+        '<div class="video-title">' + esc(v.title) + '</div>' +
+        '<div class="video-author"><span class="video-author-avatar"></span>@' + esc(v.author) + ' · 粉丝 ' + esc(v.fans) + '</div>' +
+        '<div class="video-stats">' +
+          '<div class="video-stat">▶ ' + esc(v.play) + '</div>' +
+          '<div class="video-stat">❤ ' + esc(v.like) + '</div>' +
+          '<div class="video-stat"><span class="relevance-score ' + scoreClass(v.score) + '">相关性 ' + v.score + '</span></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+  document.getElementById('results-count').textContent = '找到 ' + list.length + ' 条对标视频';
+  updateBatchBtn();
+}
+
+function toggleSelect(i) {
+  if (selected[i]) delete selected[i]; else selected[i] = true;
+  var card = document.querySelector('.video-card[data-idx="' + i + '"]');
+  if (card) card.classList.toggle('selected', !!selected[i]);
+  updateBatchBtn();
+}
+
+function selectAll() {
+  mockResults.forEach(function(_, i) { selected[i] = true; });
+  document.querySelectorAll('.video-card').forEach(function(c) { c.classList.add('selected'); });
+  updateBatchBtn();
+}
+function deselectAll() {
+  selected = {};
+  document.querySelectorAll('.video-card').forEach(function(c) { c.classList.remove('selected'); });
+  updateBatchBtn();
+}
+function updateBatchBtn() {
+  var n = Object.keys(selected).length;
+  document.getElementById('batch-btn').textContent = '批量拆解 (' + n + ')';
+}
+
+function startSearch() {
+  var empty = document.getElementById('empty-state');
+  var results = document.getElementById('results-area');
+  var pText = document.getElementById('progress-text');
+  var pBar = document.getElementById('progress-bar');
+  var pFill = document.getElementById('progress-fill');
+  var keyword = document.getElementById('search-keyword').value.trim();
+  var limit = parseInt(document.getElementById('search-limit').value) || 20;
+  var sort = document.getElementById('search-sort').value;
+
+  if (!keyword) { showToast('⚠️ 请输入搜索关键词'); return; }
+
+  // Collect selected tags as extra keywords
+  var tags = document.querySelectorAll('#auto-tags .tag.selected');
+  var tagKws = [];
+  tags.forEach(function(t) { tagKws.push(t.textContent.replace('×','').trim()); });
+  var fullKeyword = tagKws.length > 0 ? tagKws.join(' ') + ' ' + keyword : keyword;
+
+  empty.style.display = 'none';
+  results.style.display = 'none';
+  pText.classList.add('show');
+  pBar.classList.add('show');
+  pFill.style.width = '30%';
+  pText.textContent = '正在搜索抖音...';
+
+  fetch('/api/competitor/search', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({keyword: fullKeyword, limit: limit, sort: sort})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    pFill.style.width = '100%';
+    pText.textContent = '搜索完成！';
+    setTimeout(function() {
+      pText.classList.remove('show');
+      pBar.classList.remove('show');
+      if (data.success && data.results && data.results.length > 0) {
+        results.style.display = 'block';
+        selected = {};
+        mockResults = data.results;
+        renderCards(data.results);
+        showToast('✅ 找到 ' + data.results.length + ' 条对标视频');
+      } else {
+        empty.style.display = 'block';
+        showToast('❌ ' + (data.message || '未找到结果'));
+      }
+    }, 500);
+  })
+  .catch(function(err) {
+    pText.classList.remove('show');
+    pBar.classList.remove('show');
+    empty.style.display = 'block';
+    showToast('❌ 搜索失败: ' + err.message);
+  });
+}
+
+function batchDissect() {
+  var n = Object.keys(selected).length;
+  if (n === 0) { showToast('⚠️ 请先选择要拆解的视频'); return; }
+  var urls = [];
+  Object.keys(selected).forEach(function(i) {
+    var v = mockResults[parseInt(i)];
+    if (v && v.url) urls.push(v.url);
+  });
+  if (urls.length === 0) { showToast('⚠️ 选中的视频没有有效链接'); return; }
+  showToast('🚀 正在将 ' + urls.length + ' 条视频加入拆解队列...');
+  // Send first URL to main analysis
+  fetch('/api/analyze', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({url: urls[0]})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.task_id) {
+      showToast('✅ 已加入拆解队列 (任务: ' + data.task_id.substring(0,8) + '...)');
+    } else {
+      showToast('❌ ' + (data.message || '加入失败'));
+    }
+  })
+  .catch(function(err) { showToast('❌ 请求失败: ' + err.message); });
+}
+
+function openVideoModal(idx) {
+  var v = mockResults[idx];
+  var modal = document.getElementById("video-modal");
+  var video = document.getElementById("modal-video");
+  document.getElementById("modal-video-title").textContent = v.title;
+  document.getElementById("modal-video-author").textContent = "@" + v.author + " · 粉丝 " + v.fans;
+  // Use a sample video for preview
+  video.src = "https://www.w3schools.com/html/mov_bbb.mp4";
+  modal.classList.add("show");
+  video.play();
+}
+function closeVideoModal() {
+  var modal = document.getElementById("video-modal");
+  var video = document.getElementById("modal-video");
+  video.pause();
+  video.src = "";
+  modal.classList.remove("show");
+}
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 2500);
+}
+</script>
+<div class="video-modal" id="video-modal" onclick="if(event.target===this)closeVideoModal()">
+  <div class="video-modal-content">
+    <button class="video-modal-close" onclick="closeVideoModal()">✕</button>
+    <video id="modal-video" controls playsinline></video>
+    <div class="video-modal-info">
+      <div class="video-modal-title" id="modal-video-title"></div>
+      <div class="video-modal-author" id="modal-video-author"></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
