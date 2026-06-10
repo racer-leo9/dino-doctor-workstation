@@ -1,0 +1,61 @@
+﻿# ==========================================
+# 爆款短视频分析流程 - 配置文件
+# ==========================================
+
+# 飞书开放平台应用凭证
+feishu:
+  app_id: "cli_aa87970ef17f1bb4"
+  app_secret: "2IIzJyF4J0LqGJB99B9J3ddK2eaUQvTb"
+  # 多维表格信息
+  bitable:
+    app_token: "I44dbmeA0aYqo6sxbwIcGJYNnob"
+    table_id: "tblzjesVxlRRsES5"
+
+
+# LLM 配置（OpenAI 兼容 API）
+llm:
+  enabled: true
+  base_url: "https://token.xinhankr.com/v1"
+  api_key: "sk-dbc5d954955f00636ee2e674d48eb48b15c93497b418f987"  # 填入你的 API Key
+  model: "gpt-5.5"  # 支持 gpt-4o / gpt-4o-mini / deepseek-chat 等
+
+# 分析配置
+analysis:
+  weights:
+    like_weight: 0.3
+    comment_weight: 0.25
+    share_weight: 0.25
+    completion_rate: 0.2
+  viral_threshold: 3.0
+  content_dimensions:
+    - "hook"
+    - "pain_point"
+    - "solution"
+    - "emotional_arc"
+    - "call_to_action"
+    - "title_formula"
+    - "tags"
+
+# 评论区分析配置
+comment_analysis:
+  enabled: true
+  sample_size: 200
+  analyze_dimensions:
+    - "sentiment"
+    - "hot_topics"
+    - "user_pain_points"
+    - "conversion_intent"
+
+# 数据采集配置
+scraping:
+  platform: "douyin"
+  proxy: ""
+  rate_limit: 2
+  max_retries: 3
+
+# 飞书机器人配置
+bot:
+  port: 9000
+  verification_token: ""
+  encrypt_key: ""
+
